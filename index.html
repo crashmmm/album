@@ -854,7 +854,7 @@
   body.rot-portrait #rotLockHint{display:flex}
 </style>
 </head>
-<body class="tx-fade fit-contain">
+<body class="tx-fade fit-cover">
 
 <!-- ========== 屏保 ========== -->
 <div id="screensaver" aria-hidden="true">
@@ -1326,6 +1326,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.</pre>
     建议使用 <kbd>Chrome</kbd> / <kbd>Edge</kbd> 浏览器<br>
     键盘快捷键：<kbd>Space</kbd> 播放 · <kbd>← →</kbd> 切换 · <kbd>F</kbd> 全屏 · <kbd>H</kbd> 隐藏 UI
   </div>
+  <div style="margin-top:18px; font-size:11px; color:var(--fg-mute); opacity:.7; line-height:1.5">
+    © 2026 mc定制 · 设计开发 · 本项目 MIT 许可<br>
+    图标来源 <a href="#" id="welcomeAbout2" style="color:var(--fg-soft); text-decoration:underline">Feather Icons (MIT)</a> · <a href="#" id="welcomeAbout3" style="color:var(--fg-soft); text-decoration:underline">第三方归属</a>
+  </div>
   <div class="browser-warn" id="browserWarn" style="display:none">
     ⚠ 当前浏览器可能不完全支持文件夹选择 API，建议使用 Chrome / Edge 最新版。
   </div>
@@ -1366,7 +1370,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.</pre>
   const DEFAULT_INTERVAL = 3;
   const DEFAULT_ORDER = 'seq';
   const DEFAULT_TX = 'fade';
-  const DEFAULT_FIT = 'contain';
+  const DEFAULT_FIT = 'cover';   // 铺满屏幕（不留黑边）—— 用户可在设置里改为 contain / actual
   const DEFAULT_ROT = 'auto';
 
   // ============ 状态 ============
@@ -2731,17 +2735,13 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.</pre>
       await fsPromise;
     });
     $('#welcomeAdd').addEventListener('click', async () => {
-      // 同步链：先尝试全屏（保留 user activation）
-      const fsPromise = (!document.fullscreenElement && !document.webkitFullscreenElement)
-        ? (function(){
-            const el = document.documentElement;
-            const req = el.requestFullscreen || el.webkitRequestFullscreen;
-            return req ? req.call(el).catch(() => {}) : Promise.resolve();
-          })()
-        : Promise.resolve();
+      // 注意：这里**不要**调 requestFullscreen！
+      // Android Chrome 在 fullscreen 模式下弹系统文件选择器会失败（黑屏，无 picker）
+      // 让 pickFolder 先弹 picker → addFolder 加载完 → 用户点"继续播放"才进全屏
       const handles = await pickFolder();
       for (const h of handles) await addFolder(h);
-      await fsPromise;
+      // 加载完后切换"继续播放"按钮可见
+      // (state.images.length > 0 时, 其他 handler 会自动更新 welcomeResume)
     });
     $('#welcomeResume').addEventListener('click', async () => {
       if (!state.images.length){
@@ -2773,6 +2773,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.</pre>
     $('#welcomeAbout').addEventListener('click', () => {
       openDrawer('about');
     });
+    // 欢迎页底部的新链接（指向"关于 / 许可"抽屉）
+    const wA2 = $('#welcomeAbout2');
+    const wA3 = $('#welcomeAbout3');
+    if (wA2) wA2.addEventListener('click', (e) => { e.preventDefault(); openDrawer('about'); });
+    if (wA3) wA3.addEventListener('click', (e) => { e.preventDefault(); openDrawer('about'); });
     $('#setRescan').addEventListener('click', () => { markInteract(); rescanAll(); });
     $('#clearAll').addEventListener('click', () => { markInteract(); clearAll(); });
 
