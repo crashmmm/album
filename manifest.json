@@ -1,0 +1,19 @@
+{
+  "name": "平板电子相册",
+  "short_name": "相册",
+  "description": "mc定制 · 把手机/平板/显示器改造成电子相框",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#000000",
+  "theme_color": "#0b0b10",
+  "icons": [
+    {
+      "src": "mc-brand.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

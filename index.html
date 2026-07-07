@@ -7,6 +7,10 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="manifest.json" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>平板电子相册 · mc定制</title>
 <style>
   /* ====================== 基础 ====================== */
@@ -705,6 +709,34 @@
     color:rgba(255,255,255,.85);
     max-width:380px;
   }
+  #welcome .pwa-hint{
+    background:rgba(99,102,241,.10);
+    border:1px solid rgba(167,139,250,.30);
+    border-radius:14px;
+    padding:14px 18px;
+    color:#fff;
+    max-width:380px;
+    margin-bottom:18px;
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    font-size:13px;
+    line-height:1.55;
+    text-align:left;
+  }
+  #welcome .pwa-hint b{color:#a78bfa}
+  #welcome .pwa-hint-close{
+    flex:0 0 auto;
+    background:rgba(255,255,255,.10);
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:8px;
+    padding:6px 12px;
+    color:#fff;
+    font-size:12px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  #welcome .pwa-hint-close:hover{background:rgba(255,255,255,.18)}
   #welcome .welcome-tools{
     margin-top:18px;
     display:flex;
@@ -736,60 +768,56 @@
     .meta{font-size:11px; padding:5px 8px}
   }
 
-  /* ====================== 全屏沉浸模式（is-fs） ====================== */
+  /* ====================== 全屏沉浸模式（is-fs） ======================
+     "零 UI"模式：除图片外的所有页面 UI 都隐藏
+     点屏幕能临时唤出 dock/设置（变成半透明过渡）
+  */
   body.is-fs #stage{
     background:
       radial-gradient(ellipse 70% 60% at 50% 45%, rgba(99,102,241,.06), transparent 70%),
       #000;
   }
   body.is-fs #imgWrap{
-    padding:max(2vh, 12px);
+    padding:0;  /* 沉浸模式图片直接铺满，无内边距 */
     box-sizing:border-box;
   }
   body.is-fs #imgWrap > img.in{
-    box-shadow:
-      0 0 0 1px rgba(255,255,255,.04),
-      0 20px 60px -10px rgba(0,0,0,.7),
-      0 0 120px -20px rgba(99,102,241,.18);
-    border-radius:6px;
+    box-shadow:none;  /* 没有阴影，真正的全屏图 */
+    border-radius:0;
   }
-  body.is-fs #imgWrap > img.out{
-    box-shadow: 0 0 60px -10px rgba(0,0,0,.6);
+  body.is-fs #imgWrap > img.out{ box-shadow:none; }
+
+  /* 沉浸模式：完全隐藏 dock / bar / meta / thumbs / progress */
+  body.is-fs .dock,
+  body.is-fs .topbar,
+  body.is-fs .meta,
+  body.is-fs #thumbs,
+  body.is-fs #progress,
+  body.is-fs #welcome,
+  body.is-fs #screensaver{ display:none !important; }
+
+  /* 但 ui-shown 类能临时唤出 dock（点屏幕后短暂显示） */
+  body.is-fs.ui-shown .dock{
+    display:flex !important;
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
   }
-  /* 全屏沉浸时，只有 ui-hidden 同时存在才隐 dock（首次进入先让用户看到控制） */
-  body.is-fs.ui-hidden .dock{
-    opacity:0;
-    transform:translate(-50%, 130%);
-    pointer-events:none;
-  }
-  /* 全屏时顶部 mc logo + 设置栏稍微淡 */
-  body.is-fs .topbar.top{
-    background:linear-gradient(180deg, rgba(0,0,0,.45) 0%, transparent 100%);
-  }
-  body.is-fs .topbar.top{background:none}
-  body.is-fs .topbar.top > *{transition:opacity var(--ui-hide-ms) var(--ease)}
-  body.is-fs.ui-hidden .topbar.top > *{opacity:0}
-  /* 全屏时元信息改成底部居中胶囊，更优雅 */
-  body.is-fs .meta{
-    left:50%;
-    top:auto;
-    bottom:calc(28px + env(safe-area-inset-bottom, 0px));
-    transform:translateX(-50%);
-    text-align:center;
-    background:rgba(0,0,0,.55);
-    backdrop-filter:blur(24px) saturate(160%);
-    -webkit-backdrop-filter:blur(24px) saturate(160%);
-    border:1px solid rgba(255,255,255,.12);
-    padding:10px 18px;
+
+  /* 退出全屏按钮：屏幕右下角小图标，仅在 ui-shown 时显示 */
+  body.is-fs.ui-shown .fs-exit-hint{
+    position:fixed;
+    top:14px; right:14px;
+    z-index:50;
+    background:rgba(0,0,0,.6);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,.15);
     border-radius:999px;
-    max-width:80vw;
-  }
-  body.is-fs .meta .row{justify-content:center; gap:10px}
-  body.is-fs .meta .row .k{opacity:.5}
-  body.is-fs .meta .row .v{max-width:none}
-  body.is-fs.ui-hidden .meta{
-    opacity:0;
-    transform:translate(-50%, 20px);
+    padding:8px 12px;
+    color:rgba(255,255,255,.8);
+    font-size:12px;
+    pointer-events:auto;
+    cursor:pointer;
   }
 
   /* 横屏提示遮罩（如果强制竖屏且设备是横屏） */
@@ -1175,6 +1203,13 @@
 
 <!-- ========== 欢迎页 ========== -->
 <div id="welcome">
+  <div class="pwa-hint" id="pwaHint" style="display:none">
+    <div>
+      <b>📲 想全屏没浏览器UI？</b><br>
+      <span style="opacity:.85">点击浏览器右上角 <b>⋯</b> 菜单 → 选 <b>添加到主屏幕</b>，下次从桌面图标打开就是全屏 PWA 模式。</span>
+    </div>
+    <button class="pwa-hint-close" id="pwaHintClose">知道了</button>
+  </div>
   <svg class="logo" viewBox="0 0 100 30" width="180" height="54">
     <defs>
       <linearGradient id="mc-bg3" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -2308,13 +2343,22 @@
       state.lastInteractionTs = Date.now();
       return;
     }
+    // is-fs 模式：单击屏幕短暂显示 dock（2.5秒后自动隐）
+    if (document.body.classList.contains('is-fs')){
+      document.body.classList.add('ui-shown');
+      clearTimeout(onStageClick._t);
+      onStageClick._t = setTimeout(() => {
+        document.body.classList.remove('ui-shown');
+      }, 2500);
+      markInteract();
+      return;
+    }
     if (document.body.classList.contains('ui-hidden')){
-      // UI 隐藏时：点屏幕 = 显示 UI（手机第一次点会唤出控制条）
+      // UI 隐藏时：点屏幕 = 显示 UI
       showUI();
     } else {
-      // UI 显示时：点屏幕 = 隐藏 UI（让用户回到纯净看图模式）
+      // UI 显示时：点屏幕 = 隐藏 UI
       hideUI();
-      // 如果当前在全屏，额外尝试退出（桌面端在用户手势内能成功）
       if (document.fullscreenElement || document.webkitFullscreenElement){
         const ex = document.exitFullscreen || document.webkitExitFullscreen;
         if (ex) ex.call(document).catch(() => {});
@@ -2509,32 +2553,46 @@
     });
     $('#btnFs').addEventListener('click', () => {
       markInteract();
-      // 强制进入视觉沉浸模式（不管 fullscreen API 成功与否）
+      // 如果已经在 is-fs 沉浸模式 → 退出
+      if (document.body.classList.contains('is-fs')){
+        document.body.classList.remove('is-fs');
+        document.body.classList.remove('ui-shown');
+        if (document.fullscreenElement || document.webkitFullscreenElement){
+          const ex = document.exitFullscreen || document.webkitExitFullscreen;
+          if (ex) ex.call(document).catch(() => {});
+        }
+        toast('已退出沉浸模式');
+        return;
+      }
+      // 进入沉浸模式
       document.body.classList.add('is-fs');
-      // 强制自动播放
       if (state.images.length > 0 && !state.playing){
         setPlaying(true);
         startAuto();
       }
-      // 同时尝试真实 fullscreen
-      if (!document.fullscreenElement && !document.webkitFullscreenElement){
-        const el = document.documentElement;
-        const req = el.requestFullscreen || el.webkitRequestFullscreen;
-        if (req){
-          req.call(el).then(() => {
-            toast('已进入真全屏');
-          }).catch(() => {
-            toast('已进入沉浸模式（地址栏可能仍在）');
-          });
-        } else {
-          toast('已进入沉浸模式');
+      // 检查是否在 PWA 模式
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+      if (!isPWA){
+        // 浏览器模式：尝试 fullscreen（很可能失败但试试）
+        if (!document.fullscreenElement && !document.webkitFullscreenElement){
+          const el = document.documentElement;
+          const req = el.requestFullscreen || el.webkitRequestFullscreen;
+          if (req){
+            req.call(el).then(() => {
+              toast('已进入沉浸');
+            }).catch(() => {
+              setTimeout(() => {
+                toast('想完全没浏览器UI？点击「⋯」→「添加到主屏幕」后从桌面启动', 4500);
+              }, 600);
+            });
+          } else {
+            setTimeout(() => {
+              toast('想完全没浏览器UI？点击「⋯」→「添加到主屏幕」后从桌面启动', 4500);
+            }, 600);
+          }
         }
       } else {
-        // 已在全屏，退出
-        const ex = document.exitFullscreen || document.webkitExitFullscreen;
-        if (ex) ex.call(document).catch(() => {});
-        document.body.classList.remove('is-fs');
-        toast('已退出沉浸');
+        toast('PWA 全屏模式启动，按返回键退出');
       }
     });
     $('#setAddFolder').addEventListener('click', async () => {
@@ -2615,6 +2673,15 @@
       const el = document.getElementById('inAppName');
       if (el) el.textContent = appName;
       $('#inAppWarn').style.display = '';
+    }
+    // 检测 PWA 模式（添加到主屏幕后启动）
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    if (!isPWA && env.isMobile){
+      $('#pwaHint').style.display = '';
+      $('#pwaHintClose').addEventListener('click', () => {
+        $('#pwaHint').style.display = 'none';
+        localStorage.setItem('mc-pwa-hint-dismissed', '1');
+      });
     }
   }
 
