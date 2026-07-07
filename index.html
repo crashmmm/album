@@ -1,0 +1,2636 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0b10" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>平板电子相册 · mc定制</title>
+<style>
+  /* ====================== 基础 ====================== */
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0b0b10;
+    --bg-soft:#15151c;
+    --fg:#fff;
+    --fg-soft:rgba(255,255,255,.72);
+    --fg-mute:rgba(255,255,255,.45);
+    --line:rgba(255,255,255,.12);
+    --line-strong:rgba(255,255,255,.22);
+    --accent:#a78bfa;       /* mc 紫 */
+    --accent-2:#6366f1;
+    --danger:#ef4444;
+    --ok:#22c55e;
+    --warn:#f59e0b;
+    --ui-hide-ms:240ms;
+    --ui-show-ms:160ms;
+    --ease:cubic-bezier(.22,.61,.36,1);
+  }
+  html,body{
+    height:100%; width:100%;
+    background:var(--bg);
+    color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    font-size:14px;
+    overflow:hidden;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none; user-select:none;
+    overscroll-behavior:none;
+    touch-action:manipulation;
+  }
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  input,select{font:inherit;color:inherit}
+
+  /* ====================== 主舞台 ====================== */
+  #stage{
+    position:fixed; inset:0;
+    background:#000;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+    z-index:1;
+  }
+  #stage.touch{cursor:pointer}
+  #imgWrap{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    pointer-events:none;
+  }
+  #imgWrap > img{
+    display:block;
+    max-width:100%; max-height:100%;
+    width:auto; height:auto;
+    object-fit:contain;
+    transition:
+      opacity var(--t-dur, 200ms) var(--ease),
+      transform var(--t-dur, 200ms) var(--ease),
+      filter   var(--t-dur, 200ms) var(--ease);
+    opacity:0;
+    transform:scale(1);
+    will-change:opacity, transform, filter;
+    background:#000;
+  }
+  /* 适配模式 */
+  body.fit-contain #imgWrap > img{ max-width:100%; max-height:100%; object-fit:contain }
+  body.fit-cover    #imgWrap > img{ width:100%;    height:100%;    object-fit:cover    }
+  body.fit-actual   #imgWrap > img{ max-width:none; max-height:none; width:auto; height:auto; object-fit:contain; transform-origin:center center }
+
+  /* 转场动画 */
+  body.tx-fade  #imgWrap > img.in { opacity:1 }
+  body.tx-slide #imgWrap > img.in { opacity:1; transform:translateX(0) }
+  body.tx-zoom  #imgWrap > img.in { opacity:1; transform:scale(1) }
+  body.tx-kb    #imgWrap > img.in { opacity:1; transform:scale(1.04) }
+  body.tx-fade  #imgWrap > img.out{ opacity:0 }
+  body.tx-slide #imgWrap > img.out{ opacity:0; transform:translateX(-6%) }
+  body.tx-zoom  #imgWrap > img.out{ opacity:0; transform:scale(.94) }
+  body.tx-kb    #imgWrap > img.out{ opacity:.0 }
+  /* 瞬切：无过渡 */
+  body.tx-none  #imgWrap > img{ transition:none !important }
+  body.tx-none  #imgWrap > img.out{ opacity:0 }
+
+  /* ====================== 加载/错误提示 ====================== */
+  .stage-msg{
+    position:absolute; left:50%; top:50%;
+    transform:translate(-50%,-50%);
+    color:var(--fg-soft);
+    text-align:center;
+    pointer-events:none;
+    max-width:90%;
+  }
+  .stage-msg .big{font-size:18px; margin-bottom:8px; opacity:.9}
+  .stage-msg .sub{font-size:13px; color:var(--fg-mute); line-height:1.6}
+
+  /* ====================== 顶部栏（默认隐藏） ====================== */
+  .topbar{
+    position:fixed; left:0; right:0;
+    z-index:20;
+    display:flex; align-items:center;
+    padding:14px 18px;
+    padding-top:calc(14px + env(safe-area-inset-top, 0px));
+    pointer-events:none;
+    transition:transform var(--ui-hide-ms) var(--ease), opacity var(--ui-hide-ms) var(--ease);
+  }
+  .topbar.top{top:0; justify-content:space-between}
+  .topbar.bottom{
+    bottom:0; padding-top:14px;
+    padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px));
+    justify-content:space-between;
+  }
+  body.ui-hidden .topbar.top{transform:translateY(-100%); opacity:0}
+  body.ui-hidden .topbar.bottom{transform:translateY(100%); opacity:0}
+  body:not(.ui-hidden) .topbar{transform:translateY(0); opacity:1}
+
+  .pill{
+    pointer-events:auto;
+    backdrop-filter:blur(18px) saturate(160%);
+    -webkit-backdrop-filter:blur(18px) saturate(160%);
+    background:rgba(20,20,28,.55);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:8px 14px;
+    color:var(--fg-soft);
+    font-size:13px;
+    display:inline-flex; align-items:center; gap:8px;
+    transition:background var(--ui-show-ms) var(--ease), transform var(--ui-show-ms) var(--ease);
+  }
+  .pill:hover{background:rgba(40,40,55,.78); color:#fff}
+  .pill:active{transform:scale(.96)}
+  .pill svg{width:14px; height:14px}
+  .pill .dot{
+    width:6px;height:6px;border-radius:999px;background:var(--fg-mute);
+  }
+  .pill .dot.ok{background:var(--ok); box-shadow:0 0 6px rgba(34,197,94,.6)}
+  .pill .dot.warn{background:var(--warn)}
+
+  .mc-brand{
+    pointer-events:auto;
+    backdrop-filter:blur(18px) saturate(160%);
+    -webkit-backdrop-filter:blur(18px) saturate(160%);
+    background:rgba(20,20,28,.55);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:4px 10px 4px 6px;
+    display:inline-flex; align-items:center; gap:8px;
+    color:var(--fg-soft);
+    font-size:11px;
+    line-height:1;
+    letter-spacing:.5px;
+  }
+  .mc-brand .logo{
+    height:18px; width:auto; display:block;
+  }
+  .mc-brand .sep{opacity:.4}
+
+  /* ====================== 主操作底栏 ====================== */
+  .dock{
+    position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom,0px));
+    transform:translateX(-50%);
+    z-index:19;
+    display:flex; align-items:center; gap:8px;
+    padding:6px;
+    border-radius:999px;
+    backdrop-filter:blur(18px) saturate(160%);
+    -webkit-backdrop-filter:blur(18px) saturate(160%);
+    background:rgba(20,20,28,.55);
+    border:1px solid var(--line);
+    transition:transform var(--ui-hide-ms) var(--ease), opacity var(--ui-hide-ms) var(--ease);
+  }
+  body.ui-hidden .dock{transform:translate(-50%, 130%); opacity:0}
+  .dock button{
+    width:40px; height:40px;
+    border-radius:999px;
+    display:inline-flex; align-items:center; justify-content:center;
+    color:var(--fg-soft);
+    transition:background var(--ui-show-ms) var(--ease), color var(--ui-show-ms) var(--ease), transform var(--ui-show-ms) var(--ease);
+  }
+  .dock button:hover{background:rgba(255,255,255,.08); color:#fff}
+  .dock button:active{transform:scale(.92)}
+  .dock button svg{width:18px; height:18px}
+  .dock button.primary{
+    background:var(--accent-2);
+    color:#fff;
+    width:48px; height:48px;
+    box-shadow:0 6px 22px rgba(99,102,241,.35);
+    position:relative;
+  }
+  .dock button.primary:hover{background:#7c83f7}
+  .dock button.danger:hover{color:#fda4af}
+  /* 播放中绿色脉冲点（暂停时隐藏） */
+  .dock button.primary .playing-dot{
+    position:absolute;
+    top:4px; right:4px;
+    width:8px; height:8px;
+    border-radius:999px;
+    background:#22c55e;
+    box-shadow:0 0 6px rgba(34,197,94,.7);
+    opacity:0;
+    transition:opacity var(--ui-show-ms) var(--ease);
+  }
+  body.playing .dock button.primary .playing-dot{
+    opacity:1;
+    animation:pulse-dot 1.6s ease-in-out infinite;
+  }
+  body.paused .dock button.primary .playing-dot{opacity:0.35; animation:none}
+  @keyframes pulse-dot{
+    0%, 100%{transform:scale(1); box-shadow:0 0 6px rgba(34,197,94,.7)}
+    50%{transform:scale(1.3); box-shadow:0 0 10px rgba(34,197,94,1)}
+  }
+
+  /* ====================== 缩略图栏 ====================== */
+  #thumbs{
+    position:fixed; left:0; right:0;
+    bottom:calc(78px + env(safe-area-inset-bottom,0px));
+    z-index:18;
+    overflow-x:auto; overflow-y:hidden;
+    padding:8px 14px;
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+    transition:transform var(--ui-hide-ms) var(--ease), opacity var(--ui-hide-ms) var(--ease);
+  }
+  #thumbs::-webkit-scrollbar{display:none}
+  body.ui-hidden #thumbs{transform:translateY(80%); opacity:0}
+  body.thumbs-off #thumbs{display:none}
+  #thumbs .row{
+    display:inline-flex; gap:8px;
+    padding:4px;
+  }
+  #thumbs .t{
+    width:64px; height:64px;
+    flex:0 0 auto;
+    border-radius:10px;
+    overflow:hidden;
+    background:#1a1a22;
+    border:2px solid transparent;
+    position:relative;
+    cursor:pointer;
+    transition:border-color var(--ui-show-ms) var(--ease), transform var(--ui-show-ms) var(--ease);
+  }
+  #thumbs .t:hover{transform:translateY(-2px)}
+  #thumbs .t.active{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset}
+  #thumbs .t img{width:100%; height:100%; object-fit:cover; display:block}
+  #thumbs .t .ix{
+    position:absolute; right:2px; bottom:2px;
+    font-size:10px; color:#fff;
+    background:rgba(0,0,0,.55);
+    padding:1px 5px;
+    border-radius:999px;
+  }
+
+  /* ====================== 进度条 ====================== */
+  #progress{
+    position:fixed; left:0; right:0;
+    top:0;
+    height:2px;
+    max-height:2px;
+    overflow:hidden;
+    background:rgba(255,255,255,.06);
+    z-index:30;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity var(--ui-hide-ms) var(--ease);
+  }
+  body.ui-hidden:not(.paused) #progress{opacity:1}
+  #progress .bar{
+    position:absolute;
+    left:0; top:0; bottom:0;
+    height:auto;
+    max-height:100%;
+    background:linear-gradient(90deg, var(--accent-2), var(--accent));
+    width:0%;
+    transition:width 100ms linear;
+    overflow:hidden;
+  }
+  #progress.interactive{pointer-events:auto; height:6px; max-height:6px; background:rgba(255,255,255,.12); cursor:pointer}
+  #progress.interactive .bar{box-shadow:0 0 8px rgba(167,139,250,.6)}
+
+  /* ====================== 时钟 / 计数器 ====================== */
+  .meta{
+    position:fixed; left:18px;
+    top:calc(60px + env(safe-area-inset-top, 0px));
+    z-index:18;
+    color:var(--fg-mute);
+    font-size:12px;
+    line-height:1.5;
+    pointer-events:none;
+    transition:opacity var(--ui-hide-ms) var(--ease), transform var(--ui-hide-ms) var(--ease);
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+    background:rgba(15,15,22,.35);
+    padding:6px 10px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    max-width:50vw;
+  }
+  body.ui-hidden .meta{opacity:0; transform:translateY(-6px)}
+  body.meta-off .meta{display:none}
+  .meta .row{display:flex; gap:8px; align-items:center}
+  .meta .row .k{opacity:.7}
+  .meta .row .v{color:var(--fg-soft); max-width:40vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+  /* ====================== 抽屉（设置/关于） ====================== */
+  .scrim{
+    position:fixed; inset:0; z-index:40;
+    background:rgba(0,0,0,.55);
+    opacity:0; pointer-events:none;
+    transition:opacity var(--ui-show-ms) var(--ease);
+  }
+  body.drawer-open .scrim{opacity:1; pointer-events:auto}
+
+  .drawer{
+    position:fixed; z-index:41;
+    background:#15151c;
+    border:1px solid var(--line);
+    box-shadow:0 24px 60px rgba(0,0,0,.55);
+    transition:transform var(--ui-hide-ms) var(--ease), opacity var(--ui-hide-ms) var(--ease);
+    display:flex; flex-direction:column;
+    max-height:90vh;
+  }
+  .drawer.right{
+    top:0; right:0; bottom:0;
+    width:min(420px, 92vw);
+    transform:translateX(102%);
+    opacity:0;
+  }
+  .drawer.bottom{
+    left:0; right:0; bottom:0;
+    border-radius:18px 18px 0 0;
+    transform:translateY(102%);
+    opacity:0;
+    max-height:78vh;
+  }
+  body.drawer-settings .drawer.right{transform:translateX(0); opacity:1}
+  body.drawer-about   .drawer.bottom{transform:translateY(0); opacity:1}
+
+  .drawer header{
+    padding:16px 18px;
+    border-bottom:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between;
+    flex:0 0 auto;
+  }
+  .drawer header h2{font-size:15px; font-weight:600}
+  .drawer header .x{
+    width:32px; height:32px;
+    border-radius:10px;
+    display:inline-flex; align-items:center; justify-content:center;
+    color:var(--fg-soft);
+    transition:background var(--ui-show-ms) var(--ease);
+  }
+  .drawer header .x:hover{background:rgba(255,255,255,.08); color:#fff}
+  .drawer .body{
+    overflow:auto;
+    padding:14px 18px 22px;
+    flex:1 1 auto;
+  }
+
+  /* 设置项 */
+  .grp{margin-bottom:18px}
+  .grp h3{
+    font-size:11px; font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--fg-mute);
+    margin-bottom:10px;
+  }
+  .field{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:11px 0;
+    border-top:1px solid var(--line);
+    gap:10px;
+  }
+  .field:first-child{border-top:0}
+  .field .lab{flex:1 1 auto; color:var(--fg-soft)}
+  .field .lab small{display:block; color:var(--fg-mute); font-size:11px; margin-top:2px}
+  .field .ctl{flex:0 0 auto; display:flex; gap:6px; align-items:center}
+  .seg{
+    display:inline-flex;
+    background:rgba(255,255,255,.05);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:3px;
+    gap:2px;
+  }
+  .seg button{
+    padding:6px 10px;
+    border-radius:8px;
+    color:var(--fg-soft);
+    font-size:12px;
+    transition:background var(--ui-show-ms) var(--ease), color var(--ui-show-ms) var(--ease);
+  }
+  .seg button.on{background:var(--accent-2); color:#fff; box-shadow:0 2px 8px rgba(99,102,241,.35)}
+  .seg button:hover:not(.on){background:rgba(255,255,255,.06); color:#fff}
+  .seg.compact button{padding:5px 8px; font-size:11px}
+
+  .num-input{
+    display:inline-flex; align-items:center;
+    background:rgba(255,255,255,.05);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .num-input button{
+    width:30px; height:30px;
+    color:var(--fg-soft);
+    transition:background var(--ui-show-ms) var(--ease);
+  }
+  .num-input button:hover{background:rgba(255,255,255,.08); color:#fff}
+  .num-input input{
+    width:54px;
+    height:30px;
+    background:transparent;
+    border:0; outline:0;
+    text-align:center;
+    font-variant-numeric:tabular-nums;
+    color:var(--fg);
+  }
+
+  .switch{
+    width:38px; height:22px;
+    border-radius:999px;
+    background:rgba(255,255,255,.12);
+    position:relative;
+    cursor:pointer;
+    transition:background var(--ui-show-ms) var(--ease);
+  }
+  .switch::after{
+    content:""; position:absolute;
+    top:2px; left:2px;
+    width:18px; height:18px;
+    border-radius:999px;
+    background:#fff;
+    transition:transform var(--ui-show-ms) var(--ease);
+    box-shadow:0 2px 6px rgba(0,0,0,.3);
+  }
+  .switch.on{background:var(--accent-2)}
+  .switch.on::after{transform:translateX(16px)}
+
+  .folder-list{
+    border:1px solid var(--line);
+    border-radius:12px;
+    overflow:hidden;
+  }
+  .folder-list .empty{padding:14px; color:var(--fg-mute); font-size:12px; text-align:center}
+  .folder-list .item{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 12px;
+    border-top:1px solid var(--line);
+    gap:8px;
+    transition:background var(--ui-show-ms) var(--ease);
+  }
+  .folder-list .item:first-child{border-top:0}
+  .folder-list .item:hover{background:rgba(255,255,255,.025)}
+  .folder-list .item.off{opacity:.42}
+  .folder-list .item.off .name{text-decoration:line-through; text-decoration-color:rgba(255,255,255,.25)}
+  .folder-list .name{
+    flex:1 1 auto;
+    color:var(--fg-soft);
+    font-size:13px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .folder-list .count{
+    font-size:11px; color:var(--fg-mute);
+    background:rgba(255,255,255,.05);
+    padding:2px 8px; border-radius:999px;
+  }
+  .folder-list .del{
+    width:28px; height:28px;
+    border-radius:8px;
+    color:var(--fg-mute);
+    transition:background var(--ui-show-ms) var(--ease), color var(--ui-show-ms) var(--ease);
+  }
+  .folder-list .del:hover{background:rgba(239,68,68,.18); color:#fda4af}
+
+  /* 自定义 checkbox */
+  .folder-list .cb{
+    position:relative;
+    width:22px; height:22px;
+    flex:0 0 auto;
+    cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center;
+  }
+  .folder-list .cb input{
+    position:absolute;
+    opacity:0;
+    width:100%; height:100%;
+    margin:0;
+    cursor:pointer;
+    z-index:1;
+  }
+  .folder-list .cb-box{
+    width:18px; height:18px;
+    border-radius:5px;
+    border:1.5px solid var(--line-strong);
+    background:rgba(255,255,255,.04);
+    display:inline-flex; align-items:center; justify-content:center;
+    transition:background var(--ui-show-ms) var(--ease), border-color var(--ui-show-ms) var(--ease);
+  }
+  .folder-list .cb-box::after{
+    content:"";
+    width:5px; height:9px;
+    border:solid #fff;
+    border-width:0 2px 2px 0;
+    transform:rotate(45deg) translate(-1px,-1px) scale(0);
+    transition:transform var(--ui-show-ms) var(--ease);
+  }
+  .folder-list .cb input:checked ~ .cb-box{
+    background:var(--accent-2);
+    border-color:var(--accent-2);
+  }
+  .folder-list .cb input:checked ~ .cb-box::after{
+    transform:rotate(45deg) translate(-1px,-1px) scale(1);
+  }
+  .folder-list .cb:hover .cb-box{border-color:var(--accent)}
+
+  /* 关于区 */
+  .about-hero{
+    display:flex; align-items:center; gap:14px;
+    padding:18px 0 14px;
+  }
+  .about-hero .logo{
+    height:48px;
+    background:rgba(255,255,255,.04);
+    border-radius:14px;
+    padding:6px 12px;
+  }
+  .about-hero h1{font-size:18px; font-weight:600}
+  .about-hero .ver{font-size:12px; color:var(--fg-mute); margin-top:2px}
+  .about p{color:var(--fg-soft); line-height:1.7; font-size:13px}
+  .about .tip{
+    background:rgba(99,102,241,.08);
+    border:1px solid rgba(99,102,241,.25);
+    border-radius:12px;
+    padding:12px 14px;
+    color:var(--fg-soft);
+    font-size:12px;
+    line-height:1.7;
+    margin-top:14px;
+  }
+  .lic-table{
+    margin-top:14px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    overflow:hidden;
+  }
+  .lic-table .row{
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:10px;
+    padding:10px 12px;
+    border-top:1px solid var(--line);
+    align-items:center;
+    font-size:12px;
+  }
+  .lic-table .row:first-child{border-top:0}
+  .lic-table .nm{color:var(--fg)}
+  .lic-table .lic-meta{color:var(--fg-mute); font-size:11px; margin-top:2px}
+  .lic-table .lic{
+    font-size:11px; color:var(--fg-soft);
+    background:rgba(255,255,255,.05);
+    padding:3px 8px; border-radius:6px;
+  }
+  .kbd-list{margin-top:8px; display:grid; grid-template-columns:1fr auto; gap:8px 12px; font-size:12px}
+  .kbd-list .l{color:var(--fg-soft)}
+  .kbd-list .k{
+    font-family:ui-monospace, Menlo, Consolas, monospace;
+    font-size:11px;
+    background:rgba(255,255,255,.06);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:2px 8px;
+  }
+
+  /* ====================== 屏保 ====================== */
+  #screensaver{
+    position:fixed; inset:0; z-index:60;
+    background:#000;
+    display:none;
+    flex-direction:column;
+    align-items:center; justify-content:center;
+    color:#fff;
+    cursor:pointer;
+  }
+  body.screensaver #screensaver{display:flex}
+  #screensaver .clk{
+    font-size:14vw;
+    font-weight:200;
+    line-height:1;
+    letter-spacing:-.04em;
+    font-variant-numeric:tabular-nums;
+  }
+  #screensaver .date{
+    margin-top:14px;
+    font-size:3.2vw;
+    color:rgba(255,255,255,.6);
+    letter-spacing:.04em;
+  }
+
+  /* ====================== Toast ====================== */
+  #toast{
+    position:fixed; left:50%; bottom:30%;
+    transform:translate(-50%, 20px);
+    background:rgba(20,20,28,.92);
+    border:1px solid var(--line);
+    color:#fff;
+    padding:10px 16px;
+    border-radius:12px;
+    font-size:13px;
+    z-index:80;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s var(--ease), transform .25s var(--ease);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    max-width:80vw;
+    text-align:center;
+  }
+  #toast.show{opacity:1; transform:translate(-50%, 0)}
+
+  /* ====================== 欢迎页（空状态） ====================== */
+  #welcome{
+    position:fixed; inset:0;
+    z-index:25;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    padding:24px;
+    text-align:center;
+    background:radial-gradient(80% 60% at 50% 30%, rgba(99,102,241,.18), transparent 70%), #07070b;
+  }
+  body.has-images #welcome{display:none}
+  #welcome .logo{
+    height:60px;
+    margin-bottom:18px;
+  }
+  #welcome h1{
+    font-size:24px; font-weight:600;
+    margin-bottom:6px;
+  }
+  #welcome p{
+    color:var(--fg-soft);
+    max-width:380px;
+    line-height:1.6;
+    margin-bottom:24px;
+    font-size:13px;
+  }
+  #welcome .cta{
+    display:inline-flex; align-items:center; gap:8px;
+    background:linear-gradient(135deg, var(--accent-2), var(--accent));
+    color:#fff;
+    padding:12px 22px;
+    border-radius:999px;
+    font-weight:600;
+    font-size:14px;
+    box-shadow:0 12px 30px rgba(99,102,241,.35);
+    transition:transform var(--ui-show-ms) var(--ease), box-shadow var(--ui-show-ms) var(--ease);
+  }
+  #welcome .cta:hover{transform:translateY(-2px); box-shadow:0 16px 36px rgba(99,102,241,.45)}
+  #welcome .cta:active{transform:scale(.97)}
+  #welcome .cta svg{width:18px; height:18px}
+  #welcome .cta.secondary{
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.18);
+    box-shadow:none;
+    margin-top:10px;
+    color:var(--fg-soft);
+  }
+  #welcome .cta.secondary:hover{
+    background:rgba(255,255,255,.14);
+    box-shadow:0 6px 18px rgba(0,0,0,.25);
+  }
+  #welcome .small{
+    margin-top:18px;
+    font-size:12px;
+    color:var(--fg-mute);
+    line-height:1.7;
+  }
+  #welcome .small kbd{
+    background:rgba(255,255,255,.08);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:1px 6px;
+    font-family:ui-monospace, Menlo, Consolas, monospace;
+    font-size:11px;
+  }
+  #welcome .browser-warn{
+    margin-top:14px;
+    font-size:11px;
+    color:#fda4af;
+    line-height:1.6;
+    max-width:340px;
+  }
+  #welcome .browser-warn.inapp{
+    background:rgba(251,191,36,.08);
+    border:1px solid rgba(251,191,36,.25);
+    border-radius:12px;
+    padding:12px 14px;
+    color:rgba(255,255,255,.85);
+    max-width:380px;
+  }
+  #welcome .welcome-tools{
+    margin-top:18px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  #welcome .tool-btn{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:11px 18px;
+    border-radius:14px;
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.12);
+    color:var(--fg-soft);
+    font-size:14px;
+    transition:background var(--ui-show-ms) var(--ease), transform var(--ui-show-ms) var(--ease), color var(--ui-show-ms) var(--ease);
+    min-width:140px;
+    justify-content:center;
+  }
+  #welcome .tool-btn:hover{background:rgba(255,255,255,.10); color:#fff; transform:translateY(-1px)}
+  #welcome .tool-btn:active{transform:scale(.97)}
+  #welcome .tool-btn svg{width:18px; height:18px}
+
+  /* ====================== 响应式 ====================== */
+  @media (max-width: 480px){
+    .pill{font-size:12px; padding:7px 12px}
+    .dock button{width:38px; height:38px}
+    .dock button.primary{width:44px; height:44px}
+    .meta{font-size:11px; padding:5px 8px}
+  }
+
+  /* ====================== 全屏沉浸模式（is-fs） ====================== */
+  body.is-fs #stage{
+    background:
+      radial-gradient(ellipse 70% 60% at 50% 45%, rgba(99,102,241,.06), transparent 70%),
+      #000;
+  }
+  body.is-fs #imgWrap{
+    padding:max(2vh, 12px);
+    box-sizing:border-box;
+  }
+  body.is-fs #imgWrap > img.in{
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,.04),
+      0 20px 60px -10px rgba(0,0,0,.7),
+      0 0 120px -20px rgba(99,102,241,.18);
+    border-radius:6px;
+  }
+  body.is-fs #imgWrap > img.out{
+    box-shadow: 0 0 60px -10px rgba(0,0,0,.6);
+  }
+  /* 全屏沉浸时，只有 ui-hidden 同时存在才隐 dock（首次进入先让用户看到控制） */
+  body.is-fs.ui-hidden .dock{
+    opacity:0;
+    transform:translate(-50%, 130%);
+    pointer-events:none;
+  }
+  /* 全屏时顶部 mc logo + 设置栏稍微淡 */
+  body.is-fs .topbar.top{
+    background:linear-gradient(180deg, rgba(0,0,0,.45) 0%, transparent 100%);
+  }
+  body.is-fs .topbar.top{background:none}
+  body.is-fs .topbar.top > *{transition:opacity var(--ui-hide-ms) var(--ease)}
+  body.is-fs.ui-hidden .topbar.top > *{opacity:0}
+  /* 全屏时元信息改成底部居中胶囊，更优雅 */
+  body.is-fs .meta{
+    left:50%;
+    top:auto;
+    bottom:calc(28px + env(safe-area-inset-bottom, 0px));
+    transform:translateX(-50%);
+    text-align:center;
+    background:rgba(0,0,0,.55);
+    backdrop-filter:blur(24px) saturate(160%);
+    -webkit-backdrop-filter:blur(24px) saturate(160%);
+    border:1px solid rgba(255,255,255,.12);
+    padding:10px 18px;
+    border-radius:999px;
+    max-width:80vw;
+  }
+  body.is-fs .meta .row{justify-content:center; gap:10px}
+  body.is-fs .meta .row .k{opacity:.5}
+  body.is-fs .meta .row .v{max-width:none}
+  body.is-fs.ui-hidden .meta{
+    opacity:0;
+    transform:translate(-50%, 20px);
+  }
+
+  /* 横屏提示遮罩（如果强制竖屏且设备是横屏） */
+  #rotLockHint{
+    position:fixed; inset:0; z-index:70;
+    background:rgba(0,0,0,.92);
+    display:none;
+    align-items:center; justify-content:center;
+    color:#fff;
+    text-align:center;
+    padding:24px;
+  }
+  #rotLockHint .ic{
+    width:64px;height:64px;border-radius:18px;
+    background:rgba(255,255,255,.06);
+    display:flex; align-items:center; justify-content:center;
+    margin:0 auto 14px;
+    animation:rot 2.4s var(--ease) infinite;
+  }
+  #rotLockHint .ic svg{width:32px;height:32px;color:var(--accent)}
+  @keyframes rot{
+    0%, 100%{transform:rotate(0deg)}
+    50%{transform:rotate(90deg)}
+  }
+  body.rot-portrait #rotLockHint{display:flex}
+</style>
+</head>
+<body class="tx-fade fit-contain">
+
+<!-- ========== 屏保 ========== -->
+<div id="screensaver" aria-hidden="true">
+  <div class="clk" id="ssClock">--:--:--</div>
+  <div class="date" id="ssDate"></div>
+</div>
+
+<!-- ========== 横屏/竖屏旋转提示 ========== -->
+<div id="rotLockHint">
+  <div class="ic">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+  </div>
+  <div>当前为竖屏锁定模式</div>
+  <div style="margin-top:6px;color:rgba(255,255,255,.55);font-size:13px">请将设备旋转为竖屏方向</div>
+</div>
+
+<!-- ========== 主舞台 ========== -->
+<div id="stage">
+  <div id="imgWrap"></div>
+</div>
+
+<!-- ========== 顶部栏 ========== -->
+<div class="topbar top">
+  <!-- 左：状态指示 -->
+  <div class="pill" id="statusPill" title="播放状态">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">未加载</span>
+  </div>
+  <!-- 右：mc 品牌 + 设置按钮 -->
+  <div style="display:flex; gap:8px; align-items:center">
+    <div class="mc-brand" title="mc定制 · 设计开发">
+      <!-- 内嵌 mc-brand.svg 主体（紫渐变胶囊 + mc + 定制） -->
+      <svg class="logo" viewBox="0 0 100 30" width="92" height="28" aria-label="mc定制">
+        <defs>
+          <linearGradient id="mc-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="55%" stop-color="#8b5cf6"/>
+            <stop offset="100%" stop-color="#a855f7"/>
+          </linearGradient>
+          <linearGradient id="mc-shine" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="white" stop-opacity="0.22"/>
+            <stop offset="55%" stop-color="white" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <rect width="100" height="30" rx="15" fill="url(#mc-bg)"/>
+        <rect width="100" height="15" rx="15" fill="url(#mc-shine)"/>
+        <rect x="0.5" y="0.5" width="99" height="29" rx="14.5" fill="none" stroke="white" stroke-opacity="0.28" stroke-width="0.6"/>
+        <text x="13" y="20.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif" font-size="15.5" font-weight="800" fill="white" letter-spacing="-0.6" font-style="italic">mc</text>
+        <circle cx="33" cy="15" r="1.4" fill="white" opacity="0.5"/>
+        <text x="39" y="19" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif" font-size="11" font-weight="500" fill="white" fill-opacity="0.96" letter-spacing="0.5">定制</text>
+      </svg>
+      <span class="sep">·</span>
+      <span>电子相册</span>
+    </div>
+    <button class="pill" id="btnSettings" title="设置 (S)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>设置</span>
+    </button>
+  </div>
+</div>
+
+<!-- ========== 底部栏 ========== -->
+<div class="topbar bottom">
+  <div class="pill" id="btnAbout" title="关于 / 许可 (A)" style="cursor:pointer">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    <span>关于 / 许可</span>
+  </div>
+  <div class="pill" id="btnFullscreen" title="全屏 (F)">
+    <svg id="fsIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+  </div>
+</div>
+
+<!-- ========== Dock（播放控制） ========== -->
+<div class="dock" id="dock">
+  <button id="btnPrev" title="上一张 (←)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+  <button id="btnPlay" class="primary" title="播放/暂停 (空格)">
+    <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+    <span class="playing-dot" id="playingDot"></span>
+  </button>
+  <button id="btnNext" title="下一张 (→)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+  <button id="btnRotate" title="旋转 90° (R)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+  </button>
+  <button id="btnFs" title="全屏播放 (F)" class="primary" style="width:40px;height:40px">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+  </button>
+  <button id="btnAddFolder" title="添加文件夹">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+  </button>
+  <button id="btnExit" title="退出播放 (Esc)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+  </button>
+</div>
+
+<!-- ========== 进度条 ========== -->
+<div id="progress"><div class="bar" id="progressBar"></div></div>
+
+<!-- ========== 缩略图 ========== -->
+<div id="thumbs"><div class="row" id="thumbsRow"></div></div>
+
+<!-- ========== 元信息（左上） ========== -->
+<div class="meta" id="meta">
+  <div class="row"><span class="k">#</span><span class="v" id="mIdx">-</span></div>
+  <div class="row"><span class="k">文件</span><span class="v" id="mName">-</span></div>
+  <div class="row"><span class="k">目录</span><span class="v" id="mDir">-</span></div>
+</div>
+
+<!-- ========== 抽屉：设置 ========== -->
+<div class="scrim" id="scrim"></div>
+<aside class="drawer right" id="drawerSettings" aria-label="设置">
+  <header>
+    <h2>设置</h2>
+    <button class="x" data-close>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </header>
+  <div class="body">
+
+    <div class="grp">
+      <h3>图片源</h3>
+      <div class="field" style="display:block">
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="pill" id="setAddFolder" style="flex:1;justify-content:center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+            添加文件夹
+          </button>
+          <button class="pill" id="setRescan" style="flex:1;justify-content:center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            重新扫描
+          </button>
+        </div>
+        <div class="folder-list" id="folderList">
+          <div class="empty">还没有添加任何文件夹</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <h3>播放</h3>
+      <div class="field">
+        <div class="lab">播放顺序
+          <small>顺序播放 / 随机播放 / 单文件夹循环</small>
+        </div>
+        <div class="ctl">
+          <div class="seg compact" data-seg="order">
+            <button data-val="seq" class="on">顺序</button>
+            <button data-val="rnd">随机</button>
+            <button data-val="loop">循环</button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <div class="lab">切换时间
+          <small>每张图片停留时长</small>
+        </div>
+        <div class="ctl">
+          <div class="seg compact" data-seg="interval">
+            <button data-val="3">3s</button>
+            <button data-val="5" class="on">5s</button>
+            <button data-val="10">10s</button>
+            <button data-val="30">30s</button>
+          </div>
+          <div class="num-input" style="margin-left:6px">
+            <button data-step="-1">−</button>
+            <input id="intervalInput" type="number" min="1" max="3600" step="1" value="5" />
+            <button data-step="1">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <div class="lab">转场动画</div>
+        <div class="ctl">
+          <div class="seg compact" data-seg="tx">
+            <button data-val="none">瞬切</button>
+            <button data-val="fade" class="on">淡入</button>
+            <button data-val="slide">滑动</button>
+            <button data-val="zoom">缩放</button>
+            <button data-val="kb">Ken Burns</button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <div class="lab">画面适配
+          <small>contain 留边 / cover 铺满 / actual 实际像素</small>
+        </div>
+        <div class="ctl">
+          <div class="seg compact" data-seg="fit">
+            <button data-val="contain" class="on">Contain</button>
+            <button data-val="cover">Cover</button>
+            <button data-val="actual">Actual</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <h3>屏幕方向</h3>
+      <div class="field">
+        <div class="lab">方向
+          <small>自动跟随系统 / 锁定横屏 / 锁定竖屏</small>
+        </div>
+        <div class="ctl">
+          <div class="seg compact" data-seg="rot">
+            <button data-val="auto" class="on">自动</button>
+            <button data-val="landscape">横屏</button>
+            <button data-val="portrait">竖屏</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <h3>界面</h3>
+      <div class="field">
+        <div class="lab">显示缩略图栏</div>
+        <div class="ctl"><div class="switch on" data-toggle="thumbs"></div></div>
+      </div>
+      <div class="field">
+        <div class="lab">显示图片信息</div>
+        <div class="ctl"><div class="switch on" data-toggle="meta"></div></div>
+      </div>
+      <div class="field">
+        <div class="lab">屏保模式
+          <small>长时间无操作自动黑屏，显示时钟</small>
+        </div>
+        <div class="ctl">
+          <div class="num-input">
+            <button data-screensaver-step="-1">−</button>
+            <input id="screensaverInput" type="number" min="0" max="120" step="1" value="10" />
+            <button data-screensaver-step="1">+</button>
+          </div>
+          <span style="color:var(--fg-mute);font-size:11px;margin-left:6px">分钟（0=关闭）</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <h3>数据</h3>
+      <div class="field">
+        <div class="lab">清除所有文件夹
+          <small>仅移除本地引用，不删除原文件</small>
+        </div>
+        <div class="ctl">
+          <button class="pill" id="clearAll" style="color:#fda4af">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+            清除
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</aside>
+
+<!-- ========== 抽屉：关于 ========== -->
+<aside class="drawer bottom about" id="drawerAbout" aria-label="关于">
+  <header>
+    <h2>关于 · 第三方开源许可</h2>
+    <button class="x" data-close>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </header>
+  <div class="body">
+
+    <div class="about-hero">
+      <svg class="logo" viewBox="0 0 100 30" width="120" height="36">
+        <defs>
+          <linearGradient id="mc-bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="55%" stop-color="#8b5cf6"/>
+            <stop offset="100%" stop-color="#a855f7"/>
+          </linearGradient>
+        </defs>
+        <rect width="100" height="30" rx="15" fill="url(#mc-bg2)"/>
+        <text x="13" y="20.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif" font-size="15.5" font-weight="800" fill="white" letter-spacing="-0.6" font-style="italic">mc</text>
+        <circle cx="33" cy="15" r="1.4" fill="white" opacity="0.5"/>
+        <text x="39" y="19" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif" font-size="11" font-weight="500" fill="white" fill-opacity="0.96" letter-spacing="0.5">定制</text>
+      </svg>
+      <div>
+        <h1>平板电子相册</h1>
+        <div class="ver">v1.0.0 · 单文件 HTML · 完全本地运行</div>
+      </div>
+    </div>
+
+    <p>
+      把闲置的手机、平板、显示器改造成一台优雅的电子相框。<b>零依赖、零上传、零追踪</b>——
+      所有图片都通过浏览器原生文件系统 API 在本地读取，绝不上传到任何服务器。
+    </p>
+
+    <div class="tip">
+      <b>使用提示</b><br>
+      · 首次打开请使用 <b>Chrome / Edge / Opera</b> 浏览器（基于 Chromium 内核），需要 HTTPS 或 localhost 才能使用文件夹 API。<br>
+      · 推荐把 HTML 文件放在 <code>https://</code> 站点或本地双击（Chrome 在 file:// 也支持，但部分 API 受限）。<br>
+      · 添加文件夹后会自动递归扫描子目录，所有图片会自动去重。
+    </div>
+
+    <h3 style="margin-top:18px;font-size:13px;font-weight:600">键盘快捷键</h3>
+    <div class="kbd-list">
+      <span class="l">播放 / 暂停</span><span class="k">Space</span>
+      <span class="l">上一张 / 下一张</span><span class="k">← / →</span>
+      <span class="l">顺时针旋转 90°</span><span class="k">R</span>
+      <span class="l">切换全屏</span><span class="k">F</span>
+      <span class="l">显示 / 隐藏 UI</span><span class="k">H</span>
+      <span class="l">打开设置</span><span class="k">S</span>
+      <span class="l">关于本页</span><span class="k">A</span>
+      <span class="l">退出播放</span><span class="k">Esc</span>
+    </div>
+
+    <h3 style="margin-top:18px;font-size:13px;font-weight:600">支持图片格式</h3>
+    <p style="margin-top:6px">JPG / JPEG / PNG / GIF / WebP / BMP / AVIF / SVG / HEIC (浏览器原生支持取决于版本)</p>
+
+    <h3 style="margin-top:18px;font-size:13px;font-weight:600">第三方开源许可</h3>
+    <div class="lic-table">
+      <div class="row">
+        <div>
+          <div class="nm">本项目自身代码</div>
+          <div class="lic-meta">© 2026 mc定制 · 设计开发</div>
+        </div>
+        <div class="lic">MIT</div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="nm">浏览器原生 API</div>
+          <div class="lic-meta">File System Access API · Fullscreen API · IndexedDB · Intersection Observer</div>
+        </div>
+        <div class="lic">平台内置</div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="nm">第三方 JS 库</div>
+          <div class="lic-meta">无 —— 单文件零依赖，全部使用浏览器原生能力实现</div>
+        </div>
+        <div class="lic">无</div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="nm">图标</div>
+          <div class="lic-meta">Feather Icons（MIT License）— 内联 SVG，源码见上方</div>
+        </div>
+        <div class="lic">MIT</div>
+      </div>
+    </div>
+
+    <p style="margin-top:14px;color:var(--fg-mute);font-size:11px;line-height:1.7">
+      本工具完全在本地运行，作者不对使用本工具造成的任何数据丢失或设备异常负责。<br>
+      文件夹的访问权限由浏览器管理，关闭页面或清除浏览数据后需要重新授权。
+    </p>
+
+  </div>
+</aside>
+
+<!-- ========== 欢迎页 ========== -->
+<div id="welcome">
+  <svg class="logo" viewBox="0 0 100 30" width="180" height="54">
+    <defs>
+      <linearGradient id="mc-bg3" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#6366f1"/>
+        <stop offset="55%" stop-color="#8b5cf6"/>
+        <stop offset="100%" stop-color="#a855f7"/>
+      </linearGradient>
+    </defs>
+    <rect width="100" height="30" rx="15" fill="url(#mc-bg3)"/>
+    <text x="13" y="20.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif" font-size="15.5" font-weight="800" fill="white" letter-spacing="-0.6" font-style="italic">mc</text>
+    <circle cx="33" cy="15" r="1.4" fill="white" opacity="0.5"/>
+    <text x="39" y="19" font-family="'PingFang SC','Microsoft YaHei',system-ui,sans-serif" font-size="11" font-weight="500" fill="white" fill-opacity="0.96" letter-spacing="0.5">定制</text>
+  </svg>
+  <h1>平板电子相册</h1>
+  <p>把你的平板、手机、显示器改造成一个会呼吸的电子相框。<br>支持嵌套文件夹、多文件夹混播、横竖屏切换、屏保时钟。</p>
+  <button class="cta" id="welcomeAdd">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+    <span id="welcomeAddText">选择文件夹开始播放</span>
+  </button>
+  <button class="cta secondary" id="welcomeResume" style="display:none">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    继续播放
+  </button>
+  <div class="welcome-tools">
+    <button class="tool-btn" id="welcomeSettings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>设置</span>
+    </button>
+    <button class="tool-btn" id="welcomeAbout">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span>关于 / 许可</span>
+    </button>
+  </div>
+  <div class="small">
+    建议使用 <kbd>Chrome</kbd> / <kbd>Edge</kbd> 浏览器<br>
+    键盘快捷键：<kbd>Space</kbd> 播放 · <kbd>← →</kbd> 切换 · <kbd>F</kbd> 全屏 · <kbd>H</kbd> 隐藏 UI
+  </div>
+  <div class="browser-warn" id="browserWarn" style="display:none">
+    ⚠ 当前浏览器可能不完全支持文件夹选择 API，建议使用 Chrome / Edge 最新版。
+  </div>
+  <div class="browser-warn inapp" id="inAppWarn" style="display:none">
+    <b style="color:#fbbf24">⚠ 检测到你在 <span id="inAppName">内置浏览器</span> 中打开</b><br>
+    微信/QQ/微博等内置浏览器 <b>不支持直接选整个文件夹</b>，只能逐张选图（最多 100 张）。<br>
+    想要 <b>一键选整个相册</b>，请点击右上角 ··· → <b>在浏览器中打开</b>，或复制链接到 Safari / Chrome 打开。
+  </div>
+</div>
+
+<!-- ========== Toast ========== -->
+<div id="toast"></div>
+
+<!-- =================================================================
+                          SCRIPT
+================================================================= -->
+<script>
+(() => {
+  'use strict';
+
+  // ============ 配置 ============
+  const IMG_EXT = new Set([
+    'jpg','jpeg','png','gif','webp','bmp','avif','svg','ico','tif','tiff','heic','heif'
+  ]);
+  const STORAGE_KEY = 'mc-photo-album-settings-v1';
+  const DB_NAME = 'mc-photo-album';
+  const DB_STORE = 'handles';
+  const MAX_THUMBS = 80;        // 缩略图栏最多渲染数（多了会很卡）
+  const THUMB_MAX = 200;        // 缩略图尺寸 px
+  const SS_THRESHOLD_DEFAULT = 10; // 分钟
+  const DEFAULT_INTERVAL = 3;
+  const DEFAULT_ORDER = 'seq';
+  const DEFAULT_TX = 'fade';
+  const DEFAULT_FIT = 'contain';
+  const DEFAULT_ROT = 'auto';
+
+  // ============ 状态 ============
+  const state = {
+    /** 已注册的文件夹 { id, handle, name, count, addedAt } */
+    folders: [],
+    /** 全量图片数组 */
+    images: [],   // { folderId, folderName, name, file, blobUrl, naturalW, naturalH, sizeBytes }
+    /** 当前播放索引 */
+    index: -1,
+    playing: true,
+    interval: DEFAULT_INTERVAL,
+    order: DEFAULT_ORDER,
+    tx: DEFAULT_TX,
+    fit: DEFAULT_FIT,
+    rot: DEFAULT_ROT,
+    rotate: 0,
+    thumbs: true,
+    meta: true,
+    screensaverMin: SS_THRESHOLD_DEFAULT,
+    lastInteractionTs: Date.now(),
+    lastTickTs: 0,
+    progressStartTs: 0,
+    txMs: 200,
+    blobUrlCache: new Map(),   // file -> blobUrl
+    curUrl: null,
+    nextUrl: null,
+    _autoFsRequested: false,    // 首次加载后自动全屏的标记
+  };
+
+  // ============ 工具 ============
+  const $ = (s, p) => (p || document).querySelector(s);
+  const $$ = (s, p) => Array.from((p || document).querySelectorAll(s));
+
+  function fmtBytes(n){
+    if (n < 1024) return n + ' B';
+    if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+    if (n < 1024*1024*1024) return (n/1024/1024).toFixed(1) + ' MB';
+    return (n/1024/1024/1024).toFixed(2) + ' GB';
+  }
+  function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+
+  function uid(){
+    return 'f_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+
+  function toast(msg, ms=2200){
+    const el = $('#toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.classList.remove('show'), ms);
+  }
+
+  // ============ 持久化：设置（localStorage） ============
+  function saveSettings(){
+    try {
+      const data = {
+        interval: state.interval,
+        order: state.order,
+        tx: state.tx,
+        fit: state.fit,
+        rot: state.rot,
+        thumbs: state.thumbs,
+        meta: state.meta,
+        screensaverMin: state.screensaverMin,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch(e){ /* quota */ }
+  }
+  function loadSettings(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (typeof d.interval === 'number') state.interval = d.interval;
+      if (['seq','rnd','loop'].includes(d.order)) state.order = d.order;
+      if (['fade','slide','zoom','kb','none'].includes(d.tx)) state.tx = d.tx;
+      if (['contain','cover','actual'].includes(d.fit)) state.fit = d.fit;
+      if (['auto','landscape','portrait'].includes(d.rot)) state.rot = d.rot;
+      if (typeof d.thumbs === 'boolean') state.thumbs = d.thumbs;
+      if (typeof d.meta === 'boolean') state.meta = d.meta;
+      if (typeof d.screensaverMin === 'number') state.screensaverMin = d.screensaverMin;
+    } catch(e){}
+  }
+
+  // ============ 持久化：文件夹句柄（IndexedDB） ============
+  let _db = null;
+  function openDB(){
+    if (_db) return Promise.resolve(_db);
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(DB_STORE)){
+          db.createObjectStore(DB_STORE, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = () => { _db = req.result; resolve(_db); };
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function dbPut(rec){
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, 'readwrite');
+      tx.objectStore(DB_STORE).put(rec);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function dbGetAll(){
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, 'readonly');
+      const req = tx.objectStore(DB_STORE).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function dbDel(id){
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, 'readwrite');
+      tx.objectStore(DB_STORE).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function dbClear(){
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, 'readwrite');
+      tx.objectStore(DB_STORE).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  // ============ 环境检测 ============
+  // 目标平台：Android / HarmonyOS / Windows
+  function detectEnvironment(){
+    const ua = navigator.userAgent || '';
+    const isWechat = /MicroMessenger/i.test(ua);
+    const isQQ = /\bQQ\b|MQQBrowser/i.test(ua);
+    const isWeibo = /Weibo/i.test(ua);
+    const isDingTalk = /DingTalk/i.test(ua);
+    const isFeishu = /Feishu|Lark/i.test(ua);
+    const isInApp = isWechat || isQQ || isWeibo || isDingTalk || isFeishu;
+    // 平台判断
+    const isAndroid = /Android/i.test(ua);
+    const isHarmonyOS = /HarmonyOS/i.test(ua);
+    const isWindows = /Windows/i.test(ua);
+    // 移动端 = Android（不再考虑 iOS）
+    const isMobile = isAndroid || isHarmonyOS;
+    const isDesktop = isWindows;
+    return {
+      ua, isWechat, isQQ, isWeibo, isDingTalk, isFeishu, isInApp,
+      isAndroid, isHarmonyOS, isWindows,
+      isMobile, isDesktop,
+    };
+  }
+
+  // ============ 文件夹选择（多模 fallback 链） ============
+  async function pickFolder(){
+    const env = detectEnvironment();
+
+    // 移动端（含 in-app）：优先走「相册选择器」（直接弹照片库，最自然）
+    if (env.isMobile){
+      // 内置浏览器提示
+      if (env.isInApp){
+        const appName = env.isWechat ? '微信' : env.isQQ ? 'QQ' : env.isWeibo ? '微博' : env.isDingTalk ? '钉钉' : '飞书';
+        toast(`${appName}内置浏览器仅支持单张/多张选图，不支持选整个相册文件夹`, 4200);
+      }
+      return pickFolderFiles();
+    }
+
+    // 桌面端：原生文件夹 API（支持递归子目录、权限持久化）
+    if ('showDirectoryPicker' in window){
+      try {
+        const handle = await window.showDirectoryPicker({ mode: 'read', id: 'mc-photo-album' });
+        return [handle];
+      } catch (e) {
+        // 用户取消选择
+        if (e && (e.name === 'AbortError' || e.name === 'NotAllowedError')) return [];
+        // 其它失败：静默走 fallback
+        console.warn('showDirectoryPicker 不可用：', e && (e.message || e.name));
+        toast('当前环境不支持文件夹选择，已切换为多选图片', 2800);
+      }
+    }
+
+    // 优先级 2：webkitdirectory（旧浏览器也能选文件夹，但只能单层）
+    try {
+      const r = await pickFolderWebkitDir();
+      if (r && r.length) return r;
+    } catch (e){
+      console.warn('webkitdirectory fallback 失败：', e);
+    }
+
+    // 优先级 3：普通多选图片（终极兜底 —— 用户可从多个文件夹选图片）
+    return pickFolderFiles();
+  }
+
+  function pickFolderWebkitDir(){
+    return new Promise((resolve, reject) => {
+      const inp = document.createElement('input');
+      inp.type = 'file';
+      inp.webkitdirectory = '';
+      inp.multiple = true;
+      inp.style.display = 'none';
+      document.body.appendChild(inp);
+      let settled = false;
+      const cleanup = () => { if (inp.parentNode) inp.parentNode.removeChild(inp); };
+      inp.addEventListener('change', () => {
+        if (settled) return; settled = true;
+        const items = Array.from(inp.files || []);
+        cleanup();
+        if (!items.length) return resolve([]);
+        const groups = new Map();
+        for (const f of items){
+          const rel = f.webkitRelativePath || f.name;
+          const parts = rel.split('/');
+          const folderName = parts.slice(0, -1).join('/') || f.name;
+          if (!groups.has(folderName)) groups.set(folderName, { name: folderName, files: [] });
+          groups.get(folderName).files.push(f);
+        }
+        const handles = [];
+        for (const [name, g] of groups){
+          handles.push({ __fallback: true, name, files: g.files });
+        }
+        resolve(handles);
+      });
+      // 取消选择时（部分浏览器会触发 cancel 事件）
+      inp.addEventListener('cancel', () => {
+        if (settled) return; settled = true;
+        cleanup();
+        resolve([]);
+      });
+      try { inp.click(); }
+      catch(e){
+        if (!settled){ settled = true; cleanup(); reject(e); }
+      }
+    });
+  }
+
+  function pickFolderFiles(){
+    return new Promise((resolve) => {
+      const inp = document.createElement('input');
+      inp.type = 'file';
+      inp.multiple = true;
+      inp.accept = 'image/*,.heic,.heif,.avif,.hevc';
+      inp.style.display = 'none';
+      document.body.appendChild(inp);
+      let settled = false;
+      const cleanup = () => { if (inp.parentNode) inp.parentNode.removeChild(inp); };
+      inp.addEventListener('change', () => {
+        if (settled) return; settled = true;
+        const items = Array.from(inp.files || []);
+        cleanup();
+        if (!items.length) return resolve([]);
+        // 普通多选：把所有选中的图片归到一个虚拟"已选图片"文件夹
+        resolve([{ __fallback: true, name: '已选择的图片', files: items }]);
+      });
+      inp.addEventListener('cancel', () => {
+        if (settled) return; settled = true;
+        cleanup();
+        resolve([]);
+      });
+      try { inp.click(); }
+      catch(e){
+        if (!settled){ settled = true; cleanup(); resolve([]); }
+      }
+    });
+  }
+
+  // ============ 递归扫描 ============
+  async function readEntriesRecursive(dirHandle, pathPrefix, out){
+    // dirHandle.values() 返回 AsyncIterable
+    const it = dirHandle.values();
+    while (true){
+      let entry;
+      try { entry = await it.next(); }
+      catch(e){ break; }
+      if (!entry || !entry.value) break;
+      const v = entry.value;
+      if (v.kind === 'file'){
+        const dot = v.name.lastIndexOf('.');
+        const ext = (dot >= 0 ? v.name.slice(dot+1) : '').toLowerCase();
+        if (IMG_EXT.has(ext)){
+          out.push({
+            folderName: pathPrefix || dirHandle.name,
+            fileHandle: v,
+            name: v.name,
+            ext,
+            path: (pathPrefix ? pathPrefix + '/' : '') + v.name,
+          });
+        }
+      } else if (v.kind === 'directory'){
+        const sub = (pathPrefix ? pathPrefix + '/' : '') + v.name;
+        try {
+          await readEntriesRecursive(v, sub, out);
+        } catch(e){
+          console.warn('skip dir', sub, e);
+        }
+      }
+    }
+  }
+
+  async function loadFromFallbackHandle(fh){
+    const out = [];
+    for (const f of fh.files){
+      const dot = f.name.lastIndexOf('.');
+      const ext = (dot >= 0 ? f.name.slice(dot+1) : '').toLowerCase();
+      if (IMG_EXT.has(ext)){
+        out.push({
+          folderName: fh.name,
+          fileHandle: null,
+          file: f,
+          name: f.name,
+          ext,
+          path: (fh.name ? fh.name + '/' : '') + f.name,
+        });
+      }
+    }
+    return out;
+  }
+
+  async function addFolder(handle){
+    const isFallback = handle && handle.__fallback;
+    const id = uid();
+    const folderName = isFallback ? handle.name : handle.name;
+    let entries = [];
+
+    setStatus('busy', '扫描 ' + folderName + ' ...');
+    try {
+      if (isFallback){
+        entries = await loadFromFallbackHandle(handle);
+      } else {
+        await readEntriesRecursive(handle, '', entries);
+      }
+    } catch(e){
+      console.error(e);
+      toast('扫描失败：' + (e.message || e.name));
+      setStatus('warn', '扫描失败');
+      return;
+    }
+
+    if (!entries.length){
+      toast('文件夹中没有找到图片：' + folderName);
+      setStatus('warn', '没有图片');
+      return;
+    }
+
+    // 把每个 entry 里的 fileHandle 转成 file，统一存 entries（后续 rebuildImages 会用）
+    const enriched = [];
+    for (const e of entries){
+      try {
+        let file = e.file;
+        if (!file && e.fileHandle){
+          file = await e.fileHandle.getFile();
+        }
+        if (!file) continue;
+        enriched.push({
+          file,
+          fileHandle: e.fileHandle || null,
+          folderName: e.folderName,
+          name: file.name,
+          ext: e.ext,
+          path: e.path,
+          sizeBytes: file.size,
+          mtime: file.lastModified || 0,
+        });
+      } catch(err){ console.warn(err); }
+    }
+
+    if (!enriched.length){
+      toast('文件夹中没有可读的图片：' + folderName);
+      setStatus('warn', '没有图片');
+      return;
+    }
+
+    state.folders.push({
+      id, handle, name: folderName,
+      entries: enriched,
+      count: enriched.length,
+      enabled: true,         // 默认勾选 = 参与播放
+      addedAt: Date.now(),
+    });
+
+    // 持久化 handle
+    if (!isFallback){
+      try { await dbPut({ id, handle, name: folderName, addedAt: Date.now() }); }
+      catch(e){ console.warn('save handle failed', e); }
+    }
+
+    toast(`已添加 ${enriched.length} 张图片（来自 ${folderName}）`);
+
+    // 重建播放列表
+    rebuildImages();
+    rebuildFolderList();
+    rebuildThumbs();
+    // 唤醒 UI（picker 关闭后 dock/按钮被 body.ui-hidden 隐藏了）
+    showUI();
+    updateWelcome();
+
+    // 桌面端：第一次成功加载图片后自动进入全屏
+    // 移动端不自动全屏（fullscreen API 在 setTimeout 后会失败，且部分 webview 不支持）
+    // 移动端靠 CSS fixed inset:0 已经能视觉铺满整个视口
+    if (state._autoFsRequested !== true && !detectEnvironment().isMobile){
+      state._autoFsRequested = true;
+      // 必须在用户手势内调用，否则 fullscreen API 会拒绝
+      // 这里用同步方式直接调，不用 setTimeout
+      if (state.images.length > 0 && !document.fullscreenElement){
+        toggleFullscreen().catch(() => {});
+      }
+    } else {
+      state._autoFsRequested = true;  // 标记已处理（不再尝试）
+    }
+  }
+
+  /**
+   * 根据 folders 的 enabled 字段，重新构建 state.images（去重）
+   */
+  function rebuildImages(){
+    // 释放旧的 blob URL
+    for (const u of state.blobUrlCache.values()) URL.revokeObjectURL(u);
+    state.blobUrlCache.clear();
+
+    const images = [];
+    const seen = new Set();
+    for (const f of state.folders){
+      if (!f.enabled) continue;
+      for (const e of f.entries){
+        const key = e.name + '|' + e.sizeBytes;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        images.push({
+          folderId: f.id,
+          folderName: e.folderName,
+          fileHandle: e.fileHandle || null,
+          file: e.file,
+          name: e.name,
+          ext: e.ext,
+          path: e.path,
+          sizeBytes: e.sizeBytes,
+          naturalW: 0,
+          naturalH: 0,
+          mtime: e.mtime,
+        });
+      }
+    }
+
+    // 调整 index
+    const wasEmpty = state.images.length === 0;
+    state.images = images;
+    if (images.length === 0){
+      state.index = -1;
+      $('#imgWrap').innerHTML = '';
+      document.body.classList.remove('has-images');
+      document.body.classList.remove('is-fs');
+    } else {
+      document.body.classList.add('has-images');
+      // 自动视觉沉浸（移动端不依赖 fullscreen API 也能接近全屏效果）
+      document.body.classList.add('is-fs');
+      // 强制回到第一张（首次加载时尤其重要，确保用户能立即看到图）
+      if (wasEmpty){
+        state.index = 0;
+        setPlaying(true);
+        showCurrent();
+        startAuto();
+        // 桌面端：自动进入全屏（在用户手势内调，避免失败）
+        if (!detectEnvironment().isMobile){
+          setTimeout(() => {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement){
+              toggleFullscreen().catch(() => {});
+            }
+          }, 50);
+        }
+      } else if (state.index < 0 || state.index >= images.length){
+        state.index = 0;
+        showCurrent();
+        if (!state.playing) startAuto();
+      }
+    }
+    setStatus(images.length ? 'ok' : 'warn',
+              images.length ? `共 ${images.length} 张` : '未加载');
+  }
+
+  function toggleFolderEnabled(id){
+    const f = state.folders.find(x => x.id === id);
+    if (!f) return;
+    f.enabled = !f.enabled;
+    rebuildImages();
+    rebuildFolderList();
+    rebuildThumbs();
+  }
+
+  async function loadSavedFolders(){
+    let recs = [];
+    try { recs = await dbGetAll(); } catch(e){ console.warn(e); }
+    if (!recs.length) return;
+    setStatus('busy', '恢复已授权的文件夹...');
+    for (const r of recs){
+      try {
+        // 检查权限
+        const perm = await r.handle.queryPermission({ mode: 'read' });
+        let h = r.handle;
+        if (perm !== 'granted'){
+          try {
+            const req = await r.handle.requestPermission({ mode: 'read' });
+            if (req !== 'granted') continue;
+          } catch(e){
+            continue;
+          }
+        }
+        await addFolder(h);
+      } catch(e){
+        console.warn('restore folder failed', e);
+      }
+    }
+    setStatus('ok', `共 ${state.images.length} 张`);
+  }
+
+  async function rescanAll(){
+    if (!state.folders.length){
+      toast('没有可扫描的文件夹');
+      return;
+    }
+    // 保留 folder 引用，重新扫描每个 folder 的 entries
+    const folders = state.folders.slice();
+    for (const f of folders){
+      try {
+        const isFallback = f.handle && f.handle.__fallback;
+        let entries = [];
+        if (isFallback){
+          entries = await loadFromFallbackHandle(f.handle);
+        } else {
+          await readEntriesRecursive(f.handle, '', entries);
+        }
+        // 把 entries 转成 enriched 形式
+        const enriched = [];
+        for (const e of entries){
+          try {
+            let file = e.file;
+            if (!file && e.fileHandle){
+              file = await e.fileHandle.getFile();
+            }
+            if (!file) continue;
+            enriched.push({
+              file,
+              fileHandle: e.fileHandle || null,
+              folderName: e.folderName,
+              name: file.name,
+              ext: e.ext,
+              path: e.path,
+              sizeBytes: file.size,
+              mtime: file.lastModified || 0,
+            });
+          } catch(err){ console.warn(err); }
+        }
+        f.entries = enriched;
+        f.count = enriched.length;
+      } catch(e){ console.warn(e); }
+    }
+    rebuildImages();
+    rebuildFolderList();
+    rebuildThumbs();
+    toast('重新扫描完成');
+  }
+
+  async function clearAll(){
+    for (const u of state.blobUrlCache.values()) URL.revokeObjectURL(u);
+    state.blobUrlCache.clear();
+    state.folders = [];
+    state.index = -1;
+    try { await dbClear(); } catch(e){}
+    rebuildImages();
+    rebuildFolderList();
+    rebuildThumbs();
+    setStatus('warn', '已清空');
+    toast('已清除所有文件夹');
+  }
+
+  async function removeFolder(id){
+    const idx = state.folders.findIndex(f => f.id === id);
+    if (idx < 0) return;
+    const f = state.folders[idx];
+    state.folders.splice(idx, 1);
+    try { await dbDel(id); } catch(e){}
+    rebuildImages();
+    rebuildFolderList();
+    rebuildThumbs();
+    toast(`已移除 ${f.name}`);
+  }
+
+  // ============ 播放控制 ============
+  function showMsg(big, sub){
+    const wrap = $('#imgWrap');
+    wrap.innerHTML = '';
+    const el = document.createElement('div');
+    el.className = 'stage-msg';
+    el.innerHTML = `<div class="big">${big}</div>${sub ? `<div class="sub">${sub}</div>` : ''}`;
+    wrap.appendChild(el);
+  }
+
+  function setStatus(kind, text){
+    const dot = $('#statusDot');
+    const t = $('#statusText');
+    dot.classList.remove('ok','warn');
+    if (kind === 'ok') dot.classList.add('ok');
+    else if (kind === 'warn') dot.classList.add('warn');
+    t.textContent = text;
+  }
+
+  function getBlobUrl(img){
+    if (state.blobUrlCache.has(img.name + img.sizeBytes + img.mtime)){
+      return state.blobUrlCache.get(img.name + img.sizeBytes + img.mtime);
+    }
+    const u = URL.createObjectURL(img.file);
+    state.blobUrlCache.set(img.name + img.sizeBytes + img.mtime, u);
+    // 限制缓存大小（最多 200 个 URL）
+    if (state.blobUrlCache.size > 200){
+      const first = state.blobUrlCache.keys().next().value;
+      URL.revokeObjectURL(state.blobUrlCache.get(first));
+      state.blobUrlCache.delete(first);
+    }
+    return u;
+  }
+
+  function setFit(){
+    document.body.classList.remove('fit-contain','fit-cover','fit-actual');
+    document.body.classList.add('fit-' + state.fit);
+  }
+  function setTx(){
+    document.body.classList.remove('tx-fade','tx-slide','tx-zoom','tx-kb','tx-none');
+    document.body.classList.add('tx-' + state.tx);
+    // 全部缩短到原来的 1/3 左右；瞬切 = 0
+    state.txMs = state.tx === 'fade' ? 200
+               : state.tx === 'slide' ? 200
+               : state.tx === 'zoom'  ? 220
+               : state.tx === 'kb'    ? 700
+               : 0;
+    document.documentElement.style.setProperty('--t-dur', state.txMs + 'ms');
+  }
+
+  function applyRotate(){
+    const img = $('#imgWrap > img.in') || $('#imgWrap > img');
+    if (!img) return;
+    img.style.transform = `rotate(${state.rotate}deg) scale(${state.tx === 'kb' ? 1.04 : 1})`;
+  }
+
+  function showCurrent(){
+    if (!state.images.length){
+      showMsg('还没有图片', '点击右下角 + 按钮，添加文件夹开始播放');
+      setStatus('warn', '未加载');
+      return;
+    }
+    const img = state.images[state.index];
+    if (!img){
+      showMsg('加载中…', '');
+      return;
+    }
+    const wrap = $('#imgWrap');
+
+    // 旧的 img 做 out 动画
+    const old = wrap.querySelector('img');
+    if (old){
+      old.classList.remove('in');
+      old.classList.add('out');
+      // 动画结束后移除
+      const r = old;
+      setTimeout(() => { if (r.parentNode) r.parentNode.removeChild(r); }, state.txMs + 50);
+    }
+
+    // 创建新 img（立即显示，图片慢慢加载就淡入）
+    const el = document.createElement('img');
+    el.alt = img.name;
+    el.draggable = false;
+    el.style.transform = `rotate(${state.rotate}deg) scale(1)`;
+    const url = getBlobUrl(img);
+    el.src = url;
+    // 立即添加到 wrap 并加上 in class，让图片一加载就显示（不等 onload 回调）
+    el.classList.add('in');
+    wrap.appendChild(el);
+
+    el.onload = () => {
+      img.naturalW = el.naturalWidth;
+      img.naturalH = el.naturalHeight;
+      updateMeta();
+    };
+    el.onerror = () => {
+      // 加载失败：跳过到下一张
+      console.warn('img error', img.name);
+      setTimeout(() => {
+        if (state.index < state.images.length && state.images.length > 1){
+          state.index = (state.index + 1) % state.images.length;
+          showCurrent();
+        } else {
+          // 全部失败：提示用户
+          toast('图片加载失败，可能格式不支持');
+        }
+      }, 200);
+    };
+
+    updateMeta();
+    updateThumbsActive();
+    // 唤醒 UI（picker 关闭后 dock 可能被 ui-hidden 隐藏）
+    if (typeof showUI === 'function') showUI();
+  }
+
+  function updateMeta(){
+    const img = state.images[state.index];
+    if (!img){
+      $('#mIdx').textContent = '-';
+      $('#mName').textContent = '-';
+      $('#mDir').textContent = '-';
+      return;
+    }
+    $('#mIdx').textContent = `${state.index + 1} / ${state.images.length}`;
+    $('#mName').textContent = img.name + (img.naturalW ? `  ·  ${img.naturalW}×${img.naturalH}` : '');
+    $('#mDir').textContent = img.folderName || '-';
+  }
+
+  function next(){
+    if (!state.images.length) return;
+    if (state.order === 'rnd'){
+      if (state.images.length === 1){ state.index = 0; }
+      else {
+        let n;
+        do { n = Math.floor(Math.random() * state.images.length); } while (n === state.index);
+        state.index = n;
+      }
+    } else if (state.order === 'loop'){
+      // 单文件夹循环：在当前文件夹里循环
+      const cur = state.images[state.index];
+      const same = state.images.filter(im => im.folderId === cur.folderId);
+      const i = same.findIndex(im => im === cur);
+      const ni = (i + 1) % same.length;
+      state.index = state.images.indexOf(same[ni]);
+    } else {
+      state.index = (state.index + 1) % state.images.length;
+    }
+    showCurrent();
+  }
+  function prev(){
+    if (!state.images.length) return;
+    if (state.order === 'rnd'){
+      let n;
+      do { n = Math.floor(Math.random() * state.images.length); } while (n === state.index && state.images.length > 1);
+      state.index = n;
+    } else if (state.order === 'loop'){
+      const cur = state.images[state.index];
+      const same = state.images.filter(im => im.folderId === cur.folderId);
+      const i = same.findIndex(im => im === cur);
+      const ni = (i - 1 + same.length) % same.length;
+      state.index = state.images.indexOf(same[ni]);
+    } else {
+      state.index = (state.index - 1 + state.images.length) % state.images.length;
+    }
+    showCurrent();
+  }
+
+  // ============ 自动播放 ============
+  let autoTimer = null;
+  let progressRaf = 0;
+  function startAuto(){
+    stopAuto();
+    if (!state.playing || !state.images.length) return;
+    state.progressStartTs = performance.now();
+    const intervalMs = Math.max(500, state.interval * 1000);
+    autoTimer = setInterval(() => {
+      if (!document.body.classList.contains('screensaver')){
+        next();
+        state.progressStartTs = performance.now();
+      }
+    }, intervalMs);
+    tickProgress();
+  }
+  function stopAuto(){
+    if (autoTimer){ clearInterval(autoTimer); autoTimer = null; }
+    if (progressRaf){ cancelAnimationFrame(progressRaf); progressRaf = 0; }
+    $('#progressBar').style.width = '0%';
+  }
+  function tickProgress(){
+    if (!state.playing || !autoTimer){
+      $('#progressBar').style.width = '0%';
+      return;
+    }
+    const elapsed = performance.now() - state.progressStartTs;
+    const pct = Math.min(100, (elapsed / (state.interval * 1000)) * 100);
+    $('#progressBar').style.width = pct + '%';
+    progressRaf = requestAnimationFrame(tickProgress);
+  }
+
+  function setPlaying(p){
+    state.playing = p;
+    const icon = $('#playIcon');
+    document.body.classList.toggle('playing', p);
+    document.body.classList.toggle('paused', !p);
+    if (p){
+      icon.innerHTML = '<polygon points="6 4 20 12 6 20 6 4"/>';
+      startAuto();
+    } else {
+      icon.innerHTML = '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>';
+      stopAuto();
+    }
+  }
+
+  // ============ 缩略图 ============
+  function rebuildThumbs(){
+    const row = $('#thumbsRow');
+    row.innerHTML = '';
+    const list = state.images;
+    if (!list.length) return;
+
+    // 当前可见窗口（避免一次画几百张缩略图）
+    let start = 0, end = list.length;
+    if (list.length > MAX_THUMBS){
+      const cur = state.index >= 0 ? state.index : 0;
+      const half = Math.floor(MAX_THUMBS / 2);
+      start = clamp(cur - half, 0, list.length - MAX_THUMBS);
+      end = start + MAX_THUMBS;
+    }
+    const slice = list.slice(start, end);
+
+    let pending = 0;
+    for (let i = 0; i < slice.length; i++){
+      const img = slice[i];
+      const realIdx = start + i;
+      const t = document.createElement('div');
+      t.className = 't';
+      t.dataset.idx = realIdx;
+      const im = document.createElement('img');
+      im.alt = img.name;
+      im.loading = 'lazy';
+      // 缩略图用更小的 object url（每个 blob 都建一个独立 url，太浪费了，复用同一个）
+      // 这里直接复用 getBlobUrl（虽然不是真的缩略图，但浏览器加载大图依然能渲染预览，HEIC 可能直接失败）
+      im.src = getBlobUrl(img);
+      im.onload = () => { im.style.opacity = 1; };
+      im.style.opacity = 0;
+      im.style.transition = 'opacity .25s';
+      t.appendChild(im);
+      const ix = document.createElement('span');
+      ix.className = 'ix';
+      ix.textContent = (realIdx + 1).toString();
+      t.appendChild(ix);
+      t.addEventListener('click', () => {
+        state.index = realIdx;
+        state.progressStartTs = performance.now();
+        showCurrent();
+        hideUI();
+      });
+      row.appendChild(t);
+      pending++;
+    }
+    updateThumbsActive();
+  }
+  function updateThumbsActive(){
+    $$('#thumbs .t').forEach(t => {
+      t.classList.toggle('active', parseInt(t.dataset.idx, 10) === state.index);
+    });
+    // 滚动到可视区域
+    const active = $('#thumbs .t.active');
+    if (active && active.scrollIntoView){
+      active.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }
+
+  // ============ 文件夹列表 ============
+  function rebuildFolderList(){
+    const el = $('#folderList');
+    if (!state.folders.length){
+      el.innerHTML = '<div class="empty">还没有添加任何文件夹<br><span style="opacity:.6">点上方「添加文件夹」可多次添加，勾选控制是否参与播放</span></div>';
+      return;
+    }
+    el.innerHTML = '';
+    for (const f of state.folders){
+      const it = document.createElement('div');
+      it.className = 'item' + (f.enabled ? '' : ' off');
+
+      // checkbox
+      const cb = document.createElement('label');
+      cb.className = 'cb';
+      cb.title = f.enabled ? '点击取消播放这个文件夹' : '点击加入播放';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = f.enabled;
+      box.addEventListener('change', () => toggleFolderEnabled(f.id));
+      const tick = document.createElement('span');
+      tick.className = 'cb-box';
+      cb.appendChild(box);
+      cb.appendChild(tick);
+
+      const nm = document.createElement('div');
+      nm.className = 'name';
+      nm.textContent = '📁 ' + f.name;
+      nm.title = f.name;
+
+      const ct = document.createElement('div');
+      ct.className = 'count';
+      ct.textContent = f.count + ' 张';
+
+      const dl = document.createElement('button');
+      dl.className = 'del';
+      dl.title = '从相册中移除';
+      dl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>';
+      dl.onclick = () => removeFolder(f.id);
+
+      it.appendChild(cb);
+      it.appendChild(nm);
+      it.appendChild(ct);
+      it.appendChild(dl);
+      el.appendChild(it);
+    }
+  }
+
+  // ============ UI 隐藏逻辑 ============
+  let hideUITimer = null;
+  function showUI(){
+    document.body.classList.remove('ui-hidden');
+    clearTimeout(hideUITimer);
+    if (!document.body.classList.contains('drawer-open')){
+      hideUITimer = setTimeout(() => {
+        if (!document.body.classList.contains('drawer-open') &&
+            !document.body.classList.contains('screensaver')){
+          hideUI();
+        }
+      }, 3200);
+    }
+  }
+  function hideUI(){
+    if (document.body.classList.contains('drawer-open')) return;
+    // 正在播放时不藏 dock / bar（避免手机上看不到控制按钮）
+    if (state.images.length > 0) return;
+    document.body.classList.add('ui-hidden');
+  }
+  function markInteract(){
+    state.lastInteractionTs = Date.now();
+    showUI();
+  }
+
+  // ============ 屏保 ============
+  function tickScreensaver(){
+    if (state.screensaverMin <= 0){
+      document.body.classList.remove('screensaver');
+      return;
+    }
+    if (document.body.classList.contains('drawer-open')) return;
+    const idleMs = Date.now() - state.lastInteractionTs;
+    const threshold = state.screensaverMin * 60 * 1000;
+    if (idleMs >= threshold){
+      document.body.classList.add('screensaver');
+    } else {
+      document.body.classList.remove('screensaver');
+    }
+  }
+  function updateClock(){
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    const ss = String(d.getSeconds()).padStart(2,'0');
+    $('#ssClock').textContent = `${hh}:${mm}:${ss}`;
+    const wk = ['日','一','二','三','四','五','六'][d.getDay()];
+    $('#ssDate').textContent = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 · 星期${wk}`;
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // ============ 屏幕方向 ============
+  function applyOrientation(){
+    document.body.classList.remove('rot-portrait');
+    if (state.rot === 'portrait' && window.matchMedia('(orientation: landscape)').matches){
+      document.body.classList.add('rot-portrait');
+    }
+  }
+  window.addEventListener('resize', applyOrientation);
+
+  // ============ 全屏 ============
+  function toggleFullscreen(){
+    if (!document.fullscreenElement && !document.webkitFullscreenElement){
+      const el = document.documentElement;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (req) req.call(el).catch(() => toast('无法进入全屏'));
+    } else {
+      const ex = document.exitFullscreen || document.webkitExitFullscreen;
+      if (ex) ex.call(document).catch(() => {});
+    }
+  }
+  document.addEventListener('fullscreenchange', () => {
+    document.body.classList.toggle('is-fs', !!document.fullscreenElement);
+  });
+
+  // ============ 抽屉 ============
+  function openDrawer(name){
+    document.body.classList.remove('drawer-settings','drawer-about');
+    if (name === 'settings') document.body.classList.add('drawer-settings');
+    if (name === 'about') document.body.classList.add('drawer-about');
+    document.body.classList.add('drawer-open');
+    // 强制滚动归零，避免残留滚动位置
+    requestAnimationFrame(() => {
+      const drawer = name === 'settings' ? $('#drawerSettings') : $('#drawerAbout');
+      if (drawer){
+        const body = drawer.querySelector('.body');
+        if (body) body.scrollTop = 0;
+      }
+    });
+    showUI();
+  }
+  function closeDrawer(){
+    document.body.classList.remove('drawer-open','drawer-settings','drawer-about');
+  }
+
+  // ============ 键盘 ============
+  function onKey(e){
+    // 在 input 中不响应
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+    const k = e.key.toLowerCase();
+    if (k === ' '){ e.preventDefault(); setPlaying(!state.playing); markInteract(); }
+    else if (k === 'arrowright'){ next(); markInteract(); }
+    else if (k === 'arrowleft'){ prev(); markInteract(); }
+    else if (k === 'r'){ state.rotate = (state.rotate + 90) % 360; applyRotate(); markInteract(); }
+    else if (k === 'f'){ toggleFullscreen(); markInteract(); }
+    else if (k === 'h'){ document.body.classList.toggle('ui-hidden'); markInteract(); }
+    else if (k === 's'){ openDrawer('settings'); }
+    else if (k === 'a'){ openDrawer('about'); }
+    else if (k === 'escape'){
+      if (document.body.classList.contains('drawer-open')) closeDrawer();
+      else if (document.body.classList.contains('screensaver')){ document.body.classList.remove('screensaver'); state.lastInteractionTs = Date.now(); }
+      else if (document.body.classList.contains('ui-hidden')) showUI();
+      else hideUI();
+    }
+  }
+
+  // ============ 点击舞台 ============
+  function onStageClick(e){
+    // 设置/关于打开时不响应
+    if (document.body.classList.contains('drawer-open')) return;
+    if (document.body.classList.contains('screensaver')){
+      document.body.classList.remove('screensaver');
+      state.lastInteractionTs = Date.now();
+      return;
+    }
+    if (document.body.classList.contains('ui-hidden')){
+      // UI 隐藏时：点屏幕 = 显示 UI（手机第一次点会唤出控制条）
+      showUI();
+    } else {
+      // UI 显示时：点屏幕 = 隐藏 UI（让用户回到纯净看图模式）
+      hideUI();
+      // 如果当前在全屏，额外尝试退出（桌面端在用户手势内能成功）
+      if (document.fullscreenElement || document.webkitFullscreenElement){
+        const ex = document.exitFullscreen || document.webkitExitFullscreen;
+        if (ex) ex.call(document).catch(() => {});
+      }
+    }
+  }
+
+  /**
+   * 退出播放：暂停 + 退出全屏 + 回到欢迎页（保留已授权文件夹）
+   */
+  function exitPlay(){
+    // 退出全屏
+    if (document.fullscreenElement || document.webkitFullscreenElement){
+      const ex = document.exitFullscreen || document.webkitExitFullscreen;
+      if (ex) ex.call(document).catch(() => {});
+    }
+    // 暂停
+    setPlaying(false);
+    stopAuto();
+    // 清空舞台
+    state.index = -1;
+    state.rotate = 0;
+    document.body.classList.remove('has-images');
+    $('#imgWrap').innerHTML = '';
+    setStatus('warn', '已退出播放');
+    updateWelcome();
+    toast('已退出播放 · 点按钮可继续');
+  }
+
+  /**
+   * 根据当前 state 更新欢迎页的 CTA 按钮
+   * - 没有文件夹 → 显示"选择文件夹开始播放"
+   * - 有文件夹 → 显示"继续播放"
+   */
+  function updateWelcome(){
+    const hasFolders = state.folders.length > 0;
+    const hasImages = state.images.length > 0;
+    const addText = $('#welcomeAddText');
+    const resume = $('#welcomeResume');
+    if (hasFolders && hasImages){
+      // 已有可播放的图片
+      if (addText) addText.textContent = '添加更多文件夹';
+      if (resume) resume.style.display = '';
+    } else if (hasFolders && !hasImages){
+      // 有文件夹但都被取消勾选
+      if (addText) addText.textContent = '添加更多文件夹';
+      if (resume) resume.style.display = 'none';
+    } else {
+      if (addText) addText.textContent = '选择文件夹开始播放';
+      if (resume) resume.style.display = 'none';
+    }
+  }
+
+  // ============ 初始化 UI 控件状态 ============
+  function initSegs(){
+    // 初始化按钮 on 状态
+    $$('.seg').forEach(seg => {
+      const key = seg.dataset.seg;
+      let val;
+      if (key === 'order') val = state.order;
+      else if (key === 'interval') val = String(state.interval);
+      else if (key === 'tx') val = state.tx;
+      else if (key === 'fit') val = state.fit;
+      else if (key === 'rot') val = state.rot;
+      seg.querySelectorAll('button').forEach(b => {
+        b.classList.toggle('on', b.dataset.val === val);
+        b.addEventListener('click', () => {
+          seg.querySelectorAll('button').forEach(bb => bb.classList.remove('on'));
+          b.classList.add('on');
+          const v = b.dataset.val;
+          if (key === 'order'){ state.order = v; }
+          else if (key === 'interval'){
+            state.interval = parseInt(v, 10);
+            $('#intervalInput').value = state.interval;
+            startAuto();
+          }
+          else if (key === 'tx'){ state.tx = v; setTx(); applyRotate(); }
+          else if (key === 'fit'){ state.fit = v; setFit(); }
+          else if (key === 'rot'){ state.rot = v; applyOrientation(); }
+          saveSettings();
+          markInteract();
+        });
+      });
+    });
+
+    // interval 输入框
+    const ii = $('#intervalInput');
+    ii.value = state.interval;
+    ii.addEventListener('change', () => {
+      let v = parseInt(ii.value, 10);
+      if (!Number.isFinite(v) || v < 1) v = 1;
+      if (v > 3600) v = 3600;
+      state.interval = v;
+      ii.value = v;
+      startAuto();
+      saveSettings();
+    });
+    $$('.num-input button[data-step]').forEach(b => {
+      b.addEventListener('click', () => {
+        const step = parseInt(b.dataset.step, 10);
+        let v = parseInt(ii.value, 10) + step;
+        v = clamp(v, 1, 3600);
+        ii.value = v;
+        ii.dispatchEvent(new Event('change'));
+        markInteract();
+      });
+    });
+
+    // 开关
+    $$('.switch').forEach(sw => {
+      const key = sw.dataset.toggle;
+      const on = key === 'thumbs' ? state.thumbs : key === 'meta' ? state.meta : true;
+      sw.classList.toggle('on', !!on);
+      document.body.classList.toggle('thumbs-off', key === 'thumbs' && !on);
+      document.body.classList.toggle('meta-off', key === 'meta' && !on);
+      sw.addEventListener('click', () => {
+        sw.classList.toggle('on');
+        const nowOn = sw.classList.contains('on');
+        if (key === 'thumbs'){
+          state.thumbs = nowOn;
+          document.body.classList.toggle('thumbs-off', !nowOn);
+        } else if (key === 'meta'){
+          state.meta = nowOn;
+          document.body.classList.toggle('meta-off', !nowOn);
+        }
+        saveSettings();
+        markInteract();
+      });
+    });
+
+    // 屏保输入
+    const si = $('#screensaverInput');
+    si.value = state.screensaverMin;
+    si.addEventListener('change', () => {
+      let v = parseInt(si.value, 10);
+      if (!Number.isFinite(v) || v < 0) v = 0;
+      if (v > 120) v = 120;
+      state.screensaverMin = v;
+      si.value = v;
+      saveSettings();
+      markInteract();
+    });
+    $$('.num-input button[data-screensaver-step]').forEach(b => {
+      b.addEventListener('click', () => {
+        const step = parseInt(b.dataset.screensaverStep, 10);
+        let v = parseInt(si.value, 10) + step;
+        v = clamp(v, 0, 120);
+        si.value = v;
+        si.dispatchEvent(new Event('change'));
+        markInteract();
+      });
+    });
+
+    // 关闭抽屉
+    $$('[data-close]').forEach(b => b.addEventListener('click', closeDrawer));
+    $('#scrim').addEventListener('click', closeDrawer);
+
+    // 进度条点击 seek（暂停态可调）
+    const prog = $('#progress');
+    prog.classList.add('interactive');
+    prog.addEventListener('click', (e) => {
+      if (!state.images.length) return;
+      const rect = prog.getBoundingClientRect();
+      const pct = clamp((e.clientX - rect.left) / rect.width, 0, 1);
+      // 跳到对应位置：暂停后点击进度条 = 跳到对应时间点后继续播放
+      if (state.playing){
+        // 立即跳到下一张（用最快方式）
+        state.interval = Math.max(1, Math.round(state.interval * pct));
+        $('#intervalInput').value = state.interval;
+        startAuto();
+        toast(`跳到下一张，时间间隔调整为 ${state.interval}s`);
+      } else {
+        // 暂停状态：点击 = 跳到对应位置开始播放
+        state.progressStartTs = performance.now() - pct * state.interval * 1000;
+        setPlaying(true);
+      }
+      markInteract();
+    });
+  }
+
+  // ============ 绑定 ============
+  function bindEvents(){
+    // 主按钮
+    $('#btnAddFolder').addEventListener('click', async () => {
+      markInteract();
+      const handles = await pickFolder();
+      for (const h of handles) await addFolder(h);
+    });
+    $('#btnExit').addEventListener('click', () => {
+      markInteract();
+      exitPlay();
+    });
+    $('#btnFs').addEventListener('click', () => {
+      markInteract();
+      // 立即进入视觉沉浸
+      document.body.classList.add('is-fs');
+      // 同时尝试真实 fullscreen（用户手势内能成功就成功，否则不影响视觉沉浸）
+      if (!document.fullscreenElement && !document.webkitFullscreenElement){
+        const el = document.documentElement;
+        const req = el.requestFullscreen || el.webkitRequestFullscreen;
+        if (req){
+          req.call(el).then(() => {
+            toast('已进入全屏播放');
+          }).catch(() => {
+            // 进入视觉沉浸模式（地址栏可能还在，但效果接近全屏）
+            toast('已开启沉浸模式（点屏幕显示控制）');
+          });
+        } else {
+          toast('已开启沉浸模式（点屏幕显示控制）');
+        }
+      } else {
+        // 已在全屏，退出
+        const ex = document.exitFullscreen || document.webkitExitFullscreen;
+        if (ex) ex.call(document).catch(() => {});
+        toast('已退出全屏');
+      }
+    });
+    $('#setAddFolder').addEventListener('click', async () => {
+      markInteract();
+      const handles = await pickFolder();
+      for (const h of handles) await addFolder(h);
+    });
+    $('#welcomeAdd').addEventListener('click', async () => {
+      const handles = await pickFolder();
+      for (const h of handles) await addFolder(h);
+    });
+    $('#welcomeResume').addEventListener('click', () => {
+      if (!state.images.length){
+        toast('请先在设置里勾选要播放的文件夹');
+        openDrawer('settings');
+        return;
+      }
+      // 从头开始播放
+      state.index = 0;
+      state.rotate = 0;
+      showCurrent();
+      setPlaying(true);
+      startAuto();
+      document.body.classList.add('has-images');
+      // 桌面端自动全屏（在用户点击事件内调用，fullscreen API 才会成功）
+      if (!detectEnvironment().isMobile){
+        if (!document.fullscreenElement && !document.webkitFullscreenElement){
+          toggleFullscreen().catch(() => {});
+        }
+      }
+    });
+    $('#welcomeSettings').addEventListener('click', () => {
+      openDrawer('settings');
+    });
+    $('#welcomeAbout').addEventListener('click', () => {
+      openDrawer('about');
+    });
+    $('#setRescan').addEventListener('click', () => { markInteract(); rescanAll(); });
+    $('#clearAll').addEventListener('click', () => { markInteract(); clearAll(); });
+
+    $('#btnPrev').addEventListener('click', () => { prev(); markInteract(); });
+    $('#btnNext').addEventListener('click', () => { next(); markInteract(); });
+    $('#btnPlay').addEventListener('click', () => { setPlaying(!state.playing); markInteract(); });
+    $('#btnRotate').addEventListener('click', () => { state.rotate = (state.rotate + 90) % 360; applyRotate(); markInteract(); });
+    $('#btnSettings').addEventListener('click', () => openDrawer('settings'));
+    $('#btnAbout').addEventListener('click', () => openDrawer('about'));
+    $('#btnFullscreen').addEventListener('click', toggleFullscreen);
+
+    // 舞台点击
+    $('#stage').addEventListener('click', onStageClick);
+    document.addEventListener('keydown', onKey);
+
+    // 鼠标移动显示 UI
+    document.addEventListener('mousemove', markInteract);
+    document.addEventListener('touchstart', markInteract, { passive: true });
+
+    // 屏保恢复
+    $('#screensaver').addEventListener('click', () => {
+      document.body.classList.remove('screensaver');
+      state.lastInteractionTs = Date.now();
+    });
+
+    // 阻止浏览器默认的拖拽行为
+    document.addEventListener('dragover', e => e.preventDefault());
+    document.addEventListener('drop', e => e.preventDefault());
+
+    // 定时检查屏保
+    setInterval(tickScreensaver, 5000);
+
+    // 检测浏览器兼容性（最理想是有原生文件夹 API，否则会走 fallback，体验略差）
+    if (!('showDirectoryPicker' in window)){
+      $('#browserWarn').style.display = '';
+    }
+    // 检测内嵌浏览器（微信 / QQ / 微博 等），显示针对性提示
+    const env = detectEnvironment();
+    if (env.isInApp){
+      const appName = env.isWechat ? '微信' : env.isQQ ? 'QQ' : env.isWeibo ? '微博' : env.isDingTalk ? '钉钉' : '飞书';
+      const el = document.getElementById('inAppName');
+      if (el) el.textContent = appName;
+      $('#inAppWarn').style.display = '';
+    }
+  }
+
+  // ============ Boot ============
+  function boot(){
+    loadSettings();
+    setFit();
+    setTx();
+    applyOrientation();
+    initSegs();
+    bindEvents();
+    updateWelcome();
+    // 启动时先隐藏 UI（但有图片在播放时不藏）
+    setTimeout(() => {
+      if (document.body.classList.contains('drawer-open')) return;
+      if (state.images.length > 0) return;  // 正在播放，UI 常显
+      document.body.classList.add('ui-hidden');
+    }, 1200);
+    // 恢复已保存的文件夹
+    loadSavedFolders();
+    // 标记首次交互时间（避免打开就进屏保）
+    state.lastInteractionTs = Date.now();
+
+    // 直接选文件夹：首次打开 + 没有任何已授权的文件夹时，1.5s 后自动弹出选择器
+    setTimeout(async () => {
+      if (state.images.length === 0 && !state._autoOpened){
+        state._autoOpened = true;
+        const handles = await pickFolder();
+        for (const h of handles) await addFolder(h);
+      }
+      // 自动弹窗后再次更新欢迎页（如果用户取消了，状态也要刷新）
+      updateWelcome();
+    }, 1500);
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+</body>
+</html>
