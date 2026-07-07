@@ -1,16 +1,25 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<!--
+  ============================================================================
+  平板电子相册 · mc定制  (single-file HTML)
+  © 2026 mc定制 · 设计开发
+  License: MIT (本项目自身代码)
+  Repository: https://github.com/crashmmm/album
+  第三方内容完整归属见底部"关于 · 第三方开源许可"区
+  ============================================================================
+-->
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#0b0b10" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="author" content="mc定制" />
+<meta name="copyright" content="© 2026 mc定制" />
+<meta name="license" content="MIT" />
 <link rel="manifest" href="manifest.json" />
-<meta name="mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>平板电子相册 · mc定制</title>
 <style>
   /* ====================== 基础 ====================== */
@@ -868,6 +877,11 @@
 </div>
 
 <!-- ========== 顶部栏 ========== -->
+<!--
+  以下 24x24 SVG 图标 (Feather Icons, MIT, © Cole Bemis 2013-2023)：
+  play / pause / chevron-left / chevron-right / rotate-cw / maximize / log-out / plus / x / settings / info / trash-2 / check 等
+  完整许可文本见"关于"区
+-->
 <div class="topbar top">
   <!-- 左：状态指示 -->
   <div class="pill" id="statusPill" title="播放状态">
@@ -1162,40 +1176,105 @@
     <p style="margin-top:6px">JPG / JPEG / PNG / GIF / WebP / BMP / AVIF / SVG / HEIC (浏览器原生支持取决于版本)</p>
 
     <h3 style="margin-top:18px;font-size:13px;font-weight:600">第三方开源许可</h3>
+    <p style="margin-top:6px;color:var(--fg-soft);font-size:12px;line-height:1.7">
+      本程序使用的所有第三方内容、字体、库、图标完整归属如下。完整许可文本见各条目下方的"许可"列。
+    </p>
     <div class="lic-table">
       <div class="row">
         <div>
           <div class="nm">本项目自身代码</div>
-          <div class="lic-meta">© 2026 mc定制 · 设计开发</div>
+          <div class="lic-meta">© 2026 mc定制 · 设计开发<br>github.com/crashmmm/album</div>
         </div>
         <div class="lic">MIT</div>
       </div>
       <div class="row">
         <div>
-          <div class="nm">浏览器原生 API</div>
-          <div class="lic-meta">File System Access API · Fullscreen API · IndexedDB · Intersection Observer</div>
+          <div class="nm">Feather Icons</div>
+          <div class="lic-meta">© 2013-2023 Cole Bemis · feathericons.com<br>21 个内联 SVG 图标（播放/暂停/上一张/下一张/旋转/全屏/退出/添加/设置/关于/删除/勾选/X 等）—— 完整保留原 SVG 路径，未修改</div>
+        </div>
+        <div class="lic">MIT</div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="nm">mc-brand.svg 品牌 logo</div>
+          <div class="lic-meta">紫渐变胶囊 + "mc 定制" 文字<br>由 mc定制 自有创作，作为本项目附带资源发布</div>
+        </div>
+        <div class="lic">© mc定制</div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="nm">浏览器原生 Web API</div>
+          <div class="lic-meta">W3C / WHATWG / TC39 标准<br>File System Access · Fullscreen · IndexedDB · localStorage · IntersectionObserver · URL.createObjectURL · screen.orientation</div>
         </div>
         <div class="lic">平台内置</div>
       </div>
       <div class="row">
         <div>
-          <div class="nm">第三方 JS 库</div>
-          <div class="lic-meta">无 —— 单文件零依赖，全部使用浏览器原生能力实现</div>
+          <div class="nm">第三方 JavaScript 库</div>
+          <div class="lic-meta">无 —— 单文件零依赖<br>所有功能均使用浏览器原生 API 实现</div>
         </div>
-        <div class="lic">无</div>
+        <div class="lic">不适用</div>
       </div>
       <div class="row">
         <div>
-          <div class="nm">图标</div>
-          <div class="lic-meta">Feather Icons（MIT License）— 内联 SVG，源码见上方</div>
+          <div class="nm">字体</div>
+          <div class="lic-meta">系统原生字体栈，无第三方嵌入<br>-apple-system / BlinkMacSystemFont / "Segoe UI" / "PingFang SC" / "Microsoft YaHei" / system-ui / sans-serif</div>
         </div>
-        <div class="lic">MIT</div>
+        <div class="lic">系统</div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="nm">图像 / 音频 / 视频素材</div>
+          <div class="lic-meta">无 —— 用户自备本地文件<br>本程序不内置任何示例图片或音视频</div>
+        </div>
+        <div class="lic">不适用</div>
       </div>
     </div>
 
+    <h3 style="margin-top:18px;font-size:13px;font-weight:600">Feather Icons 完整许可文本</h3>
+    <pre style="background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:10px;line-height:1.5;color:var(--fg-soft);font-family:ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-x:auto;margin:0">The MIT License (MIT)
+
+Copyright (c) 2013-2023 Cole Bemis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.</pre>
+
+    <h3 style="margin-top:18px;font-size:13px;font-weight:600">本项目许可文本（MIT）</h3>
+    <pre style="background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:10px;line-height:1.5;color:var(--fg-soft);font-family:ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-x:auto;margin:0">MIT License
+
+Copyright (c) 2026 mc定制
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.</pre>
+
     <p style="margin-top:14px;color:var(--fg-mute);font-size:11px;line-height:1.7">
       本工具完全在本地运行，作者不对使用本工具造成的任何数据丢失或设备异常负责。<br>
-      文件夹的访问权限由浏览器管理，关闭页面或清除浏览数据后需要重新授权。
+      文件夹的访问权限由浏览器管理，关闭页面或清除浏览数据后需要重新授权。<br>
+      <span style="color:var(--fg-soft)">Copyright © 2026 mc定制 · Licensed under MIT</span>
     </p>
 
   </div>
@@ -1259,6 +1338,13 @@
 
 <!-- ========== Toast ========== -->
 <div id="toast"></div>
+
+<!-- ========== Footer（版权信息） ========== -->
+<div style="display:none" aria-hidden="true">
+  Copyright © 2026 mc定制 · Licensed under MIT
+  Third-party components: Feather Icons (MIT, © Cole Bemis 2013-2023)
+  No tracking, no analytics, fully local.
+</div>
 
 <!-- =================================================================
                           SCRIPT
