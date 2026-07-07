@@ -2275,8 +2275,43 @@
     if (state.rot === 'portrait' && window.matchMedia('(orientation: landscape)').matches){
       document.body.classList.add('rot-portrait');
     }
+    // 检测是否在 PWA 模式
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    const isLandscape = window.matchMedia('(orientation: landscape)').matches;
+    const isPortrait = window.matchMedia('(orientation: portrait)').matches;
+    const env = detectEnvironment();
+    const isMobile = env.isMobile;
+
+    // PWA 模式 + 移动端：尝试 lock
+    if (isPWA && isMobile && screen.orientation && typeof screen.orientation.lock === 'function'){
+      let target = null;
+      if (state.rot === 'landscape') target = 'landscape';
+      else if (state.rot === 'portrait') target = 'portrait';
+      if (target){
+        screen.orientation.lock(target).catch((e) => {
+          console.warn('orientation lock failed:', e);
+        });
+      } else {
+        screen.orientation.unlock().catch(() => {});
+      }
+      return;
+    }
+
+    // 普通浏览器模式：给用户提示
+    if (isMobile && state.rot !== 'auto'){
+      if (state.rot === 'landscape' && isPortrait && !state._rotWarned){
+        state._rotWarned = true;
+        toast('请将手机旋转到横屏方向（或点击浏览器菜单「添加到主屏幕」从桌面图标打开以启用自动旋转锁）', 4500);
+        setTimeout(() => { state._rotWarned = false; }, 6000);
+      } else if (state.rot === 'portrait' && isLandscape && !state._rotWarned){
+        state._rotWarned = true;
+        toast('请将手机旋转到竖屏方向', 3500);
+        setTimeout(() => { state._rotWarned = false; }, 6000);
+      }
+    }
   }
   window.addEventListener('resize', applyOrientation);
+  window.addEventListener('orientationchange', applyOrientation);
 
   // ============ 全屏 ============
   function toggleFullscreen(){
@@ -2597,19 +2632,45 @@
     });
     $('#setAddFolder').addEventListener('click', async () => {
       markInteract();
+      // 同步链：先尝试全屏（保留 user activation），再选文件
+      const fsPromise = (!document.fullscreenElement && !document.webkitFullscreenElement)
+        ? (function(){
+            const el = document.documentElement;
+            const req = el.requestFullscreen || el.webkitRequestFullscreen;
+            return req ? req.call(el).catch(() => {}) : Promise.resolve();
+          })()
+        : Promise.resolve();
       const handles = await pickFolder();
       for (const h of handles) await addFolder(h);
+      await fsPromise;
     });
     $('#welcomeAdd').addEventListener('click', async () => {
+      // 同步链：先尝试全屏（保留 user activation）
+      const fsPromise = (!document.fullscreenElement && !document.webkitFullscreenElement)
+        ? (function(){
+            const el = document.documentElement;
+            const req = el.requestFullscreen || el.webkitRequestFullscreen;
+            return req ? req.call(el).catch(() => {}) : Promise.resolve();
+          })()
+        : Promise.resolve();
       const handles = await pickFolder();
       for (const h of handles) await addFolder(h);
+      await fsPromise;
     });
-    $('#welcomeResume').addEventListener('click', () => {
+    $('#welcomeResume').addEventListener('click', async () => {
       if (!state.images.length){
         toast('请先在设置里勾选要播放的文件夹');
         openDrawer('settings');
         return;
       }
+      // 同步链：先尝试全屏
+      const fsPromise = (!document.fullscreenElement && !document.webkitFullscreenElement)
+        ? (function(){
+            const el = document.documentElement;
+            const req = el.requestFullscreen || el.webkitRequestFullscreen;
+            return req ? req.call(el).catch(() => {}) : Promise.resolve();
+          })()
+        : Promise.resolve();
       // 从头开始播放
       state.index = 0;
       state.rotate = 0;
@@ -2617,12 +2678,8 @@
       setPlaying(true);
       startAuto();
       document.body.classList.add('has-images');
-      // 桌面端自动全屏（在用户点击事件内调用，fullscreen API 才会成功）
-      if (!detectEnvironment().isMobile){
-        if (!document.fullscreenElement && !document.webkitFullscreenElement){
-          toggleFullscreen().catch(() => {});
-        }
-      }
+      document.body.classList.add('is-fs');
+      await fsPromise;
     });
     $('#welcomeSettings').addEventListener('click', () => {
       openDrawer('settings');
@@ -2635,7 +2692,25 @@
 
     $('#btnPrev').addEventListener('click', () => { prev(); markInteract(); });
     $('#btnNext').addEventListener('click', () => { next(); markInteract(); });
-    $('#btnPlay').addEventListener('click', () => { setPlaying(!state.playing); markInteract(); });
+    $('#btnPlay').addEventListener('click', () => {
+      markInteract();
+      // 第一次点播放：自动进入全屏（用户手势内）
+      if (state.images.length > 0 && !document.body.classList.contains('is-fs')){
+        document.body.classList.add('is-fs');
+        if (!document.fullscreenElement && !document.webkitFullscreenElement){
+          const el = document.documentElement;
+          const req = el.requestFullscreen || el.webkitRequestFullscreen;
+          if (req){
+            req.call(el).then(() => {
+              toast('已进入全屏播放');
+            }).catch(() => {
+              toast('已进入沉浸模式（地址栏可能仍在）');
+            });
+          }
+        }
+      }
+      setPlaying(!state.playing);
+    });
     $('#btnRotate').addEventListener('click', () => { state.rotate = (state.rotate + 90) % 360; applyRotate(); markInteract(); });
     $('#btnSettings').addEventListener('click', () => openDrawer('settings'));
     $('#btnAbout').addEventListener('click', () => openDrawer('about'));
