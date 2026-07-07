@@ -1650,6 +1650,15 @@
     // 唤醒 UI（picker 关闭后 dock/按钮被 body.ui-hidden 隐藏了）
     showUI();
     updateWelcome();
+    // 强制进入播放状态（不管之前是被暂停还是退出）
+    if (state.images.length > 0){
+      document.body.classList.add('has-images');
+      document.body.classList.add('is-fs');
+      state._errCount = 0;
+      if (state.index < 0) state.index = 0;
+      setPlaying(true);
+      startAuto();
+    }
 
     // 桌面端：第一次成功加载图片后自动进入全屏
     // 移动端不自动全屏（fullscreen API 在 setTimeout 后会失败，且部分 webview 不支持）
@@ -1934,20 +1943,31 @@
     el.onload = () => {
       img.naturalW = el.naturalWidth;
       img.naturalH = el.naturalHeight;
+      state._errCount = 0;  // 成功加载清零错误计数
       updateMeta();
     };
     el.onerror = () => {
-      // 加载失败：跳过到下一张
       console.warn('img error', img.name);
+      state._errCount = (state._errCount || 0) + 1;
+      // 把加载失败的 img 立即清掉（避免堆 DOM）
+      if (el.parentNode) el.parentNode.removeChild(el);
+      // 第一次失败就提示用户
+      if (state._errCount === 1){
+        toast('图片加载失败，正尝试跳过…');
+      }
+      // 连续失败太多 → 自动暂停
+      if (state._errCount >= 3){
+        toast('多张图片加载失败，自动暂停。请检查图片格式');
+        setPlaying(false);
+        state._errCount = 0;
+        return;
+      }
       setTimeout(() => {
-        if (state.index < state.images.length && state.images.length > 1){
+        if (state.images.length > 1){
           state.index = (state.index + 1) % state.images.length;
           showCurrent();
-        } else {
-          // 全部失败：提示用户
-          toast('图片加载失败，可能格式不支持');
         }
-      }, 200);
+      }, 300);
     };
 
     updateMeta();
@@ -2489,27 +2509,32 @@
     });
     $('#btnFs').addEventListener('click', () => {
       markInteract();
-      // 立即进入视觉沉浸
+      // 强制进入视觉沉浸模式（不管 fullscreen API 成功与否）
       document.body.classList.add('is-fs');
-      // 同时尝试真实 fullscreen（用户手势内能成功就成功，否则不影响视觉沉浸）
+      // 强制自动播放
+      if (state.images.length > 0 && !state.playing){
+        setPlaying(true);
+        startAuto();
+      }
+      // 同时尝试真实 fullscreen
       if (!document.fullscreenElement && !document.webkitFullscreenElement){
         const el = document.documentElement;
         const req = el.requestFullscreen || el.webkitRequestFullscreen;
         if (req){
           req.call(el).then(() => {
-            toast('已进入全屏播放');
+            toast('已进入真全屏');
           }).catch(() => {
-            // 进入视觉沉浸模式（地址栏可能还在，但效果接近全屏）
-            toast('已开启沉浸模式（点屏幕显示控制）');
+            toast('已进入沉浸模式（地址栏可能仍在）');
           });
         } else {
-          toast('已开启沉浸模式（点屏幕显示控制）');
+          toast('已进入沉浸模式');
         }
       } else {
         // 已在全屏，退出
         const ex = document.exitFullscreen || document.webkitExitFullscreen;
         if (ex) ex.call(document).catch(() => {});
-        toast('已退出全屏');
+        document.body.classList.remove('is-fs');
+        toast('已退出沉浸');
       }
     });
     $('#setAddFolder').addEventListener('click', async () => {
