@@ -26,9 +26,9 @@
 <meta property="og:site_name" content="mc定制 · 平板电子相册" />
 <meta property="og:title" content="平板电子相册 · mc定制" />
 <meta property="og:description" content="把闲置的平板、手机、显示器改造成会呼吸的电子相框。单文件 HTML、零依赖、本地运行。" />
-<meta property="og:url" content="https://crashmmm.github.io/album/" />
-<meta property="og:image" content="https://crashmmm.github.io/album/share-preview.png" />
-<meta property="og:image:secure_url" content="https://crashmmm.github.io/album/share-preview.png" />
+<meta property="og:url" content="https://album-5w4.pages.dev/" />
+<meta property="og:image" content="https://album-5w4.pages.dev/share-preview.png" />
+<meta property="og:image:secure_url" content="https://album-5w4.pages.dev/share-preview.png" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
@@ -39,7 +39,7 @@
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="平板电子相册 · mc定制" />
 <meta name="twitter:description" content="把闲置的平板、手机、显示器改造成会呼吸的电子相框。" />
-<meta name="twitter:image" content="https://crashmmm.github.io/album/share-preview.png" />
+<meta name="twitter:image" content="https://album-5w4.pages.dev/share-preview.png" />
 <meta name="twitter:image:alt" content="平板电子相册 · mc定制" />
 
 <!-- 旧版 QQ 浏览器分享 -->
@@ -666,6 +666,71 @@
     text-align:center;
   }
   #toast.show{opacity:1; transform:translate(-50%, 0)}
+
+  /* ====================== 微信内引导浮窗 ====================== */
+  #wxGuide{
+    position:fixed; inset:0; z-index:200;
+    background:rgba(0,0,0,.78);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  #wxGuide .wx-guide-card{
+    background:linear-gradient(160deg, #15152a 0%, #0b0b14 100%);
+    border:1px solid rgba(99,102,241,.3);
+    border-radius:18px;
+    padding:28px 24px;
+    max-width:340px;
+    width:100%;
+    text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+    animation:wxGuideIn .35s cubic-bezier(.22,.61,.36,1);
+  }
+  @keyframes wxGuideIn{
+    from{opacity:0; transform:translateY(20px) scale(.96)}
+    to{opacity:1; transform:translateY(0) scale(1)}
+  }
+  #wxGuide .wx-guide-icon{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:64px; height:64px; border-radius:50%;
+    background:rgba(99,102,241,.15);
+    color:#a78bfa;
+    margin-bottom:14px;
+  }
+  #wxGuide .wx-guide-title{
+    font-size:17px; font-weight:600;
+    margin-bottom:10px;
+    color:#fff;
+  }
+  #wxGuide .wx-guide-desc{
+    font-size:13px; line-height:1.7;
+    color:rgba(255,255,255,.72);
+    margin-bottom:18px;
+  }
+  #wxGuide .wx-guide-desc b{ color:#a78bfa; font-weight:600 }
+  #wxGuide .wx-guide-steps{
+    text-align:left;
+    background:rgba(0,0,0,.3);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:10px;
+    padding:12px 14px;
+    margin-bottom:18px;
+  }
+  #wxGuide .wx-guide-step{
+    font-size:12px; line-height:1.8;
+    color:rgba(255,255,255,.6);
+  }
+  #wxGuide .wx-guide-step b{ color:rgba(255,255,255,.9); font-weight:500 }
+  #wxGuide .wx-guide-close{
+    width:100%; padding:12px;
+    border-radius:10px;
+    background:linear-gradient(135deg, #6366f1, #8b5cf6);
+    color:#fff; font-size:14px; font-weight:500;
+    border:0; cursor:pointer;
+    transition:transform .15s, opacity .15s;
+  }
+  #wxGuide .wx-guide-close:hover{ opacity:.92; transform:translateY(-1px) }
+  #wxGuide .wx-guide-close:active{ transform:scale(.97) }
 
   /* ====================== 欢迎页（空状态） ====================== */
   #welcome{
@@ -1371,6 +1436,31 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.</pre>
 
 <!-- ========== Toast ========== -->
 <div id="toast"></div>
+
+<!-- ========== 微信内引导：用浏览器打开 ========== -->
+<div id="wxGuide" style="display:none">
+  <div class="wx-guide-card">
+    <div class="wx-guide-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="40" height="40">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    </div>
+    <div class="wx-guide-title">为了完整体验，请用浏览器打开</div>
+    <div class="wx-guide-desc">
+      微信内置浏览器<b>不支持选整个文件夹</b>，只能逐张选图。<br>
+      点击右上角 <b>···</b> 菜单 → 选 <b>「在浏览器中打开」</b>，<br>
+      即可一键选整个相册。
+    </div>
+    <div class="wx-guide-steps">
+      <div class="wx-guide-step">1. 点击右上角 <b>···</b></div>
+      <div class="wx-guide-step">2. 选择 <b>在浏览器中打开</b></div>
+      <div class="wx-guide-step">3. 用 Safari / Chrome 访问</div>
+    </div>
+    <button class="wx-guide-close" id="wxGuideClose">我知道了</button>
+  </div>
+</div>
 
 <!-- ========== Footer（版权信息） ========== -->
 <div style="display:none" aria-hidden="true">
@@ -2880,6 +2970,52 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.</pre>
     }
   }
 
+  // ============ 微信内引导浮窗 ============
+  function initWxGuide(){
+    const ua = navigator.userAgent;
+    // 检测微信/QQ/微博内置浏览器
+    const isWx = /MicroMessenger/i.test(ua);
+    const isQQ = /\bQQ\b/i.test(ua) && !/Vivaldi|QQBrowser/i.test(ua);
+    const isWeibo = /Weibo/i.test(ua);
+    const isInApp = isWx || isQQ || isWeibo;
+    if (!isInApp) return;
+
+    // 不显示场景：用户主动关闭过
+    if (localStorage.getItem('mc-wx-guide-dismissed') === '1') return;
+
+    // iOS 微信/QQ：File System Access API 不可用 → 一定要显示
+    // Android 内置浏览器：有时候 showDirectoryPicker 不支持 → 显示
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    if (!isIOS && !isWx) {
+      // Android 非微信环境（如 QQ/微博）：showDirectoryPicker 一般能用
+      // 但 iOS 全场景 + Android 微信一定要提示
+    }
+
+    const el = $('#wxGuide');
+    const btn = $('#wxGuideClose');
+    if (!el || !btn) return;
+
+    // 改文案：iOS vs Android
+    const titleEl = el.querySelector('.wx-guide-title');
+    if (titleEl){
+      titleEl.textContent = isIOS
+        ? '请用 Safari 打开获得完整体验'
+        : '请用系统浏览器打开获得完整体验';
+    }
+    const descEl = el.querySelector('.wx-guide-desc');
+    if (descEl){
+      descEl.innerHTML = isIOS
+        ? '微信内置浏览器<b>不支持选整个文件夹</b>，只能逐张选图。<br>点击右上角 <b>···</b> 菜单 → 选 <b>「在 Safari 中打开」</b>，即可一键选整个相册。'
+        : '微信内置浏览器<b>不支持选整个文件夹</b>，只能逐张选图。<br>点击右上角 <b>···</b> 菜单 → 选 <b>「在浏览器中打开」</b>，即可一键选整个相册。';
+    }
+
+    el.style.display = 'flex';
+    btn.addEventListener('click', () => {
+      el.style.display = 'none';
+      try { localStorage.setItem('mc-wx-guide-dismissed', '1'); } catch(e){}
+    });
+  }
+
   // ============ Boot ============
   function boot(){
     loadSettings();
@@ -2889,6 +3025,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.</pre>
     initSegs();
     bindEvents();
     updateWelcome();
+    initWxGuide();
     // 启动时先隐藏 UI（但有图片在播放时不藏）
     setTimeout(() => {
       if (document.body.classList.contains('drawer-open')) return;
