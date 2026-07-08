@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#0b0b14"/>
@@ -16,39 +16,39 @@
       <stop offset="55%" stop-color="white" stop-opacity="0"/>
     </linearGradient>
     <radialGradient id="blob" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.35"/>
-      <stop offset="60%" stop-color="#8b5cf6" stop-opacity="0.12"/>
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.32"/>
+      <stop offset="60%" stop-color="#8b5cf6" stop-opacity="0.10"/>
       <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
     </radialGradient>
   </defs>
 
   <!-- 背景 -->
-  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="600" height="300" fill="url(#bg)"/>
 
-  <!-- 极淡光斑（不抢眼） -->
-  <ellipse cx="600" cy="315" rx="240" ry="160" fill="url(#blob)"/>
+  <!-- 极淡光斑 -->
+  <ellipse cx="300" cy="150" rx="200" ry="120" fill="url(#blob)"/>
 
-  <!-- 中心内容组：宽 320px（占画布 27%），居中略偏上 -->
-  <g transform="translate(600, 280)">
-    <!-- mc 定制 logo（120x36） -->
-    <g transform="translate(-60, -90)">
-      <rect x="0" y="0" width="120" height="36" rx="18" fill="url(#mc)"/>
-      <rect x="0" y="0" width="120" height="18" rx="18" fill="url(#shine)"/>
-      <!-- mc·定制 居中：内宽 64，左边距 28 -->
-      <g transform="translate(28, 0)">
-        <text x="0" y="25" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif" font-size="18" font-weight="800" fill="white" letter-spacing="-0.7" font-style="italic">mc</text>
-        <circle cx="24" cy="18" r="1.5" fill="white" opacity="0.5"/>
-        <text x="30" y="23" font-family="PingFang SC, Microsoft YaHei, system-ui, sans-serif" font-size="13" font-weight="500" fill="white" fill-opacity="0.96" letter-spacing="0.6">定制</text>
+  <!-- 中心内容：宽约 220px（占画布 37%）-->
+  <g transform="translate(300, 150)">
+    <!-- mc 定制 logo（100x30） -->
+    <g transform="translate(-50, -75)">
+      <rect x="0" y="0" width="100" height="30" rx="15" fill="url(#mc)"/>
+      <rect x="0" y="0" width="100" height="15" rx="15" fill="url(#shine)"/>
+      <!-- mc·定制 居中：内宽 48，左边距 26 -->
+      <g transform="translate(26, 0)">
+        <text x="0" y="21" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif" font-size="15" font-weight="800" fill="white" letter-spacing="-0.6" font-style="italic">mc</text>
+        <circle cx="20" cy="15" r="1.3" fill="white" opacity="0.5"/>
+        <text x="25" y="19" font-family="PingFang SC, Microsoft YaHei, system-ui, sans-serif" font-size="11" font-weight="500" fill="white" fill-opacity="0.96" letter-spacing="0.5">定制</text>
       </g>
     </g>
 
     <!-- 主标题 -->
-    <text x="0" y="-15" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, system-ui, sans-serif" font-size="42" font-weight="700" fill="white" letter-spacing="1.2">平板电子相册</text>
+    <text x="0" y="-12" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, system-ui, sans-serif" font-size="32" font-weight="700" fill="white" letter-spacing="0.8">平板电子相册</text>
 
-    <!-- 副标题（小一号） -->
-    <text x="0" y="30" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, system-ui, sans-serif" font-size="15" font-weight="400" fill="rgba(255,255,255,0.65)" letter-spacing="0.8">把闲置设备改造成电子相框</text>
+    <!-- 副标题 -->
+    <text x="0" y="22" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, system-ui, sans-serif" font-size="11" font-weight="400" fill="rgba(255,255,255,0.65)" letter-spacing="0.5">把闲置设备改造成电子相框</text>
   </g>
 
-  <!-- 底部 url（极小、极淡） -->
-  <text x="600" y="585" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="12" font-weight="400" fill="rgba(255,255,255,0.35)" letter-spacing="0.5">crashmmm.github.io/album</text>
+  <!-- 底部 url（极小） -->
+  <text x="300" y="278" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="9" font-weight="400" fill="rgba(255,255,255,0.35)" letter-spacing="0.3">crashmmm.github.io/album</text>
 </svg>
